@@ -99,20 +99,20 @@ INDEX_HTML = """<!DOCTYPE html>
         </header>
 
         <div class="analytics-strip">
-            <div class="stat-card"><h3>Total Fuel Cost</h3><p id="statFuel">$0.00</p></div>
-            <div class="stat-card"><h3>Total Service Cost</h3><p id="statService">$0.00</p></div>
-            <div class="stat-card"><h3>Total Cost of Ownership</h3><p id="statTco">$0.00</p></div>
-            <div class="stat-card"><h3>Avg Efficiency</h3><p id="statMileage">N/A</p></div>
+            <div class="stat-card"><h3>Total Fuel Cost</h3><p id=statFuel>₹0.00</p></div>
+            <div class="stat-card"><h3>Total Service Cost</h3><p id=statService>₹0.00</p></div>
+            <div class="stat-card"><h3>Total Cost of Ownership</h3><p id=statTco>₹0.00</p></div>
+            <div class="stat-card"><h3>Avg Efficiency</h3><p id=statMileage>N/A</p></div>
         </div>
 
         <div class="grid">
             <div class="panel">
                 <h2>🚗 Add New Vehicle</h2>
                 <form id="vehicleForm" onsubmit="addVehicle(event)" class="form-group">
-                    <input type="text" id="vName" placeholder="Vehicle Name (e.g., Daily Driver)" required>
-                    <input type="text" id="vType" placeholder="Type (e.g., Sedan, SUV)" required>
-                    <input type="text" id="vModel" placeholder="Make / Model (e.g., Toyota Camry)">
-                    <input type="number" step="any" id="vCapacity" placeholder="Fuel Capacity">
+                    <input type="text" id="vName" placeholder="Vehicle Name (e.g., My Car)" required>
+                    <input type="text" id="vType" placeholder="Type (e.g., Sedan, SUV, Bike)" required>
+                    <input type="text" id="vModel" placeholder="Make / Model (e.g., Maruti Swift)">
+                    <input type="number" step="any" id="vCapacity" placeholder="Fuel Capacity (Liters)">
                     <button type="submit">Save Vehicle</button>
                 </form>
                 <div style="margin-top:15px;" id="vehicleManagementList"></div>
@@ -128,9 +128,9 @@ INDEX_HTML = """<!DOCTYPE html>
                 <form id="fuelForm" onsubmit="addFuel(event)" class="form-group" style="display:none;">
                     <h3>Log Fuel Fill-up</h3>
                     <input type="date" id="fDate" required>
-                    <input type="number" step="any" id="fOdo" placeholder="Odometer Value" required>
-                    <input type="number" step="any" id="fAmount" placeholder="Fuel Amount (Gallons/Liters)" required>
-                    <input type="number" step="any" id="fCost" placeholder="Total Cost ($)" required>
+                    <input type="number" step="any" id="fOdo" placeholder="Odometer Value (km)" required>
+                    <input type="number" step="any" id="fAmount" placeholder="Fuel Amount (Liters)" required>
+                    <input type="number" step="any" id="fCost" placeholder="Total Cost (₹)" required>
                     <label><input type="checkbox" id="fFull" checked value="1"> Full Tank?</label>
                     <button type="submit">Save Fuel Log</button>
                 </form>
@@ -139,8 +139,8 @@ INDEX_HTML = """<!DOCTYPE html>
                     <h3>Log Maintenance Work</h3>
                     <input type="text" id="sType" placeholder="Service Type (e.g., Oil Change)" required>
                     <input type="date" id="sDate" required>
-                    <input type="number" step="any" id="sOdo" placeholder="Odometer Value" required>
-                    <input type="number" step="any" id="sCost" placeholder="Total Cost ($)" required>
+                    <input type="number" step="any" id="sOdo" placeholder="Odometer Value (km)" required>
+                    <input type="number" step="any" id="sCost" placeholder="Total Cost (₹)" required>
                     <input type="date" id="sNextDate" placeholder="Next Service Date">
                     <textarea id="sNotes" placeholder="Additional Notes / Details"></textarea>
                     <button type="submit">Save Service Log</button>
@@ -150,7 +150,7 @@ INDEX_HTML = """<!DOCTYPE html>
             <div class="panel full-width">
                 <h2>⛽ Fuel Histories <span style="font-size:12px; font-weight:normal; color:#6b7280;">(Click any cell to edit details directly, press Enter to save)</span></h2>
                 <table>
-                    <thead><tr><th>Date</th><th>Odometer</th><th>Amount</th><th>Cost</th><th>Full?</th><th>Action</th></tr></thead>
+                    <thead><tr><th>Date</th><th>Odometer (km)</th><th>Amount (L)</th><th>Cost (₹)</th><th>Full?</th><th>Action</th></tr></thead>
                     <tbody id="fuelTableBody"></tbody>
                 </table>
             </div>
@@ -158,7 +158,7 @@ INDEX_HTML = """<!DOCTYPE html>
             <div class="panel full-width">
                 <h2>🛠️ Maintenance Log Histories</h2>
                 <table>
-                    <thead><tr><th>Date</th><th>Service Type</th><th>Odometer</th><th>Cost</th><th>Next Due</th><th>Notes</th><th>Action</th></tr></thead>
+                    <thead><tr><th>Date</th><th>Service Type</th><th>Odometer (km)</th><th>Cost (₹)</th><th>Next Due</th><th>Notes</th><th>Action</th></tr></thead>
                     <tbody id="serviceTableBody"></tbody>
                 </table>
             </div>
@@ -186,10 +186,10 @@ INDEX_HTML = """<!DOCTYPE html>
             mgmtDiv.innerHTML = '<h3>Registered Fleet:</h3>';
             
             data.forEach(v => {
-                select.innerHTML += `<option value="\${v.id}">\${v.name} (\${v.make_model || v.type})</option>`;
+                select.innerHTML += `<option value="${v.id}">${v.name} (${v.make_model || v.type})</option>`;
                 mgmtDiv.innerHTML += `<div style="display:flex; justify-content:space-between; margin-bottom:5px; font-size:14px;">
-                    <span>• \${v.name}</span>
-                    <button class="delete" style="padding:2px 6px; font-size:11px;" onclick="deleteVehicle(\${v.id})">Delete Fleet Vehicle</button>
+                    <span>• ${v.name}</span>
+                    <button class="delete" style="padding:2px 6px; font-size:11px;" onclick="deleteVehicle(${v.id})">Delete Fleet Vehicle</button>
                 </div>`;
             });
             if(currentVehicleId) select.value = currentVehicleId;
@@ -210,7 +210,7 @@ INDEX_HTML = """<!DOCTYPE html>
 
         async function deleteVehicle(id) {
             if(!confirm("Are you sure you want to remove this vehicle and all related fuel/service logs?")) return;
-            await fetch(`${API}/api/vehicles/delete?id=\${id}`, { method: 'DELETE' });
+            await fetch(`${API}/api/vehicles/delete?id=${id}`, { method: 'DELETE' });
             if(currentVehicleId == id) currentVehicleId = '';
             loadVehicles();
             loadVehicleData();
@@ -230,52 +230,52 @@ INDEX_HTML = """<!DOCTYPE html>
         function clearData() {
             document.getElementById('fuelTableBody').innerHTML = '';
             document.getElementById('serviceTableBody').innerHTML = '';
-            document.getElementById('statFuel').innerText = '$0.00';
-            document.getElementById('statService').innerText = '$0.00';
-            document.getElementById('statTco').innerText = '$0.00';
+            document.getElementById('statFuel').innerText = '₹0.00';
+            document.getElementById('statService').innerText = '₹0.00';
+            document.getElementById('statTco').innerText = '₹0.00';
             document.getElementById('statMileage').innerText = 'N/A';
         }
 
         async function fetchAnalytics() {
-            const res = await fetch(`${API}/api/analytics?vehicle_id=\${currentVehicleId}`);
+            const res = await fetch(`${API}/api/analytics?vehicle_id=${currentVehicleId}`);
             const a = await res.json();
-            document.getElementById('statFuel').innerText = `$\${a.total_fuel_cost.toFixed(2)}`;
-            document.getElementById('statService').innerText = `$\${a.total_service_cost.toFixed(2)}`;
-            document.getElementById('statTco').innerText = `$\${a.tco.toFixed(2)}`;
-            document.getElementById('statMileage').innerText = a.avg_mileage !== "N/A" ? `\${a.avg_mileage} / unit` : "N/A";
+            document.getElementById('statFuel').innerText = `₹${a.total_fuel_cost.toFixed(2)}`;
+            document.getElementById('statService').innerText = `₹${a.total_service_cost.toFixed(2)}`;
+            document.getElementById('statTco').innerText = `₹${a.tco.toFixed(2)}`;
+            document.getElementById('statMileage').innerText = a.avg_mileage !== "N/A" ? `${a.avg_mileage} km/L` : "N/A";
         }
 
         async function fetchFuelLogs() {
-            const res = await fetch(`${API}/api/fuel?vehicle_id=\${currentVehicleId}`);
+            const res = await fetch(`${API}/api/fuel?vehicle_id=${currentVehicleId}`);
             const data = await res.json();
             const tbody = document.getElementById('fuelTableBody');
             tbody.innerHTML = '';
             data.forEach(r => {
                 tbody.innerHTML += `<tr>
-                    <td><input class="inline-edit" value="\${r.date}" onkeydown="handleEdit(event, 'fuel', 'date', \${r.id})"></td>
-                    <td><input class="inline-edit" type="number" step="any" value="\${r.odometer}" onkeydown="handleEdit(event, 'fuel', 'odometer', \${r.id})"></td>
-                    <td><input class="inline-edit" type="number" step="any" value="\${r.fuel_amount}" onkeydown="handleEdit(event, 'fuel', 'fuel_amount', \${r.id})"></td>
-                    <td><input class="inline-edit" type="number" step="any" value="\${r.total_cost}" onkeydown="handleEdit(event, 'fuel', 'total_cost', \${r.id})"></td>
-                    <td><input class="inline-edit" type="number" value="\${r.is_full}" onkeydown="handleEdit(event, 'fuel', 'is_full', \${r.id})"></td>
-                    <td><button class="delete" style="padding:4px 8px; font-size:12px;" onclick="deleteRow('fuel', \${r.id})">Delete</button></td>
+                    <td><input class="inline-edit" value="${r.date}" onkeydown="handleEdit(event, 'fuel', 'date', ${r.id})"></td>
+                    <td><input class="inline-edit" type="number" step="any" value="${r.odometer}" onkeydown="handleEdit(event, 'fuel', 'odometer', ${r.id})"></td>
+                    <td><input class="inline-edit" type="number" step="any" value="${r.fuel_amount}" onkeydown="handleEdit(event, 'fuel', 'fuel_amount', ${r.id})"></td>
+                    <td><input class="inline-edit" type="number" step="any" value="${r.total_cost}" onkeydown="handleEdit(event, 'fuel', 'total_cost', ${r.id})"></td>
+                    <td><input class="inline-edit" type="number" value="${r.is_full}" onkeydown="handleEdit(event, 'fuel', 'is_full', ${r.id})"></td>
+                    <td><button class="delete" style="padding:4px 8px; font-size:12px;" onclick="deleteRow('fuel', ${r.id})">Delete</button></td>
                 </tr>`;
             });
         }
 
         async function fetchServiceLogs() {
-            const res = await fetch(`${API}/api/service?vehicle_id=\${currentVehicleId}`);
+            const res = await fetch(`${API}/api/service?vehicle_id=${currentVehicleId}`);
             const data = await res.json();
             const tbody = document.getElementById('serviceTableBody');
             tbody.innerHTML = '';
             data.forEach(r => {
                 tbody.innerHTML += `<tr>
-                    <td><input class="inline-edit" value="\${r.date}" onkeydown="handleEdit(event, 'service', 'date', 	ext{\${r.id}})"></td>
-                    <td><input class="inline-edit" value="\${r.service_type}" onkeydown="handleEdit(event, 'service', 'service_type', 	ext{\${r.id}})"></td>
-                    <td><input class="inline-edit" type="number" step="any" value="\${r.odometer}" onkeydown="handleEdit(event, 'service', 'odometer', 	ext{\${r.id}})"></td>
-                    <td><input class="inline-edit" type="number" step="any" value="\${r.cost}" onkeydown="handleEdit(event, 'service', 'cost', 	ext{\${r.id}})"></td>
-                    <td><input class="inline-edit" value="\${r.next_service_date || ''}" onkeydown="handleEdit(event, 'service', 'next_service_date', 	ext{\${r.id}})"></td>
-                    <td><input class="inline-edit" value="\${r.notes || ''}" onkeydown="handleEdit(event, 'service', 'notes', 	ext{\${r.id}})"></td>
-                    <td><button class="delete" style="padding:4px 8px; font-size:12px;" onclick="deleteRow('service', 	ext{\${r.id}})">Delete</button></td>
+                    <td><input class="inline-edit" value="${r.date}" onkeydown="handleEdit(event, 'service', 'date', ${r.id})"></td>
+                    <td><input class="inline-edit" value="${r.service_type}" onkeydown="handleEdit(event, 'service', 'service_type', ${r.id})"></td>
+                    <td><input class="inline-edit" type="number" step="any" value="${r.odometer}" onkeydown="handleEdit(event, 'service', 'odometer', ${r.id})"></td>
+                    <td><input class="inline-edit" type="number" step="any" value="${r.cost}" onkeydown="handleEdit(event, 'service', 'cost', ${r.id})"></td>
+                    <td><input class="inline-edit" value="${r.next_service_date || ''}" onkeydown="handleEdit(event, 'service', 'next_service_date', ${r.id})"></td>
+                    <td><input class="inline-edit" value="${r.notes || ''}" onkeydown="handleEdit(event, 'service', 'notes', ${r.id})"></td>
+                    <td><button class="delete" style="padding:4px 8px; font-size:12px;" onclick="deleteRow('service', ${r.id})">Delete</button></td>
                 </tr>`;
             });
         }
@@ -328,12 +328,13 @@ INDEX_HTML = """<!DOCTYPE html>
 
         async function deleteRow(table, id) {
             if(!confirm("Delete this entry record permanently?")) return;
-            await fetch(`${API}/api/delete?table=\${table}&id=\${id}`, { method: 'DELETE' });
+            await fetch(`${API}/api/delete?table=${table}&id=${id}`, { method: 'DELETE' });
             loadVehicleData();
         }
     </script>
 </body>
-</html>"""
+</html>
+"""
 
 # ==========================================
 # 2. REST API REQUEST ENDPOINT HANDLER
