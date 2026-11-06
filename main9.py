@@ -19,7 +19,6 @@ def init_db():
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # Create Vehicles structural mapping table
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS vehicles (
         id SERIAL PRIMARY KEY,
@@ -30,7 +29,6 @@ def init_db():
         fuel_capacity REAL
     )""")
     
-    # Create Fuel Fillups table
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS fuel_logs (
         id SERIAL PRIMARY KEY,
@@ -43,7 +41,6 @@ def init_db():
         is_full INTEGER
     )""")
     
-    # Create Maintenance Logs table
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS service_logs (
         id SERIAL PRIMARY KEY,
@@ -57,7 +54,6 @@ def init_db():
         next_service_date TEXT
     )""")
     
-    # Safe Auto-Migrations for existing databases
     try:
         cursor.execute("ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS nickname TEXT;")
         cursor.execute("ALTER TABLE fuel_logs ADD COLUMN IF NOT EXISTS fuel_station TEXT;")
@@ -90,13 +86,11 @@ INDEX_HTML = """<!DOCTYPE html>
         .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
         .full-width { grid-column: 1 / -1; }
         
-        /* Table Layout Configuration */
         .table-container { width: 100%; overflow-x: auto; margin-top: 10px; border: 1px solid var(--border); border-radius: 6px; }
         table { width: 100%; border-collapse: collapse; text-align: left; table-layout: fixed; }
         th, td { padding: 10px; border-bottom: 1px solid var(--border); font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; position: relative; }
         th { background: #f8fafc; font-weight: 600; user-select: none; }
         
-        /* Interactive Drag Resizer Bars */
         .resizer { position: absolute; right: 0; top: 0; height: 100%; width: 5px; cursor: col-resize; user-select: none; z-index: 1; }
         .resizer:hover, .resizer.resizing { background: var(--primary); width: 6px; }
         
@@ -106,11 +100,16 @@ INDEX_HTML = """<!DOCTYPE html>
         .stat-card h3 { margin: 0 0 5px 0; font-size: 12px; color: #6b7280; text-transform: uppercase; }
         .stat-card p { margin: 0; font-size: 20px; font-weight: bold; color: var(--primary); }
         
-        /* Editable Input Fields styling */
         .inline-edit { background: transparent; border: none; width: 100%; font-family: inherit; font-size: inherit; color: inherit; padding: 4px; box-sizing: border-box; }
         .inline-edit:focus { background: #fff; border: 1px solid var(--primary); outline: none; border-radius: 4px; }
         .notes-textarea { white-space: normal; word-break: break-word; resize: vertical; min-height: 32px; font-size: 13px; line-height: 1.4; padding: 4px; border: 1px solid transparent; background: transparent; width: 100%; box-sizing: border-box; }
         .notes-textarea:focus { background: #fff; border: 1px solid var(--primary); outline: none; border-radius: 4px; }
+        
+        /* Dynamic Due Alert Badges */
+        .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-top: 4px; text-transform: uppercase; }
+        .badge-overdue { background-color: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; }
+        .badge-warning { background-color: #fef3c7; color: #d97706; border: 1px solid #fcd34d; }
+        .badge-safe { background-color: #d1fae5; color: #059669; border: 1px solid #6ee7b7; }
         
         .backup-controls { display: flex; gap: 10px; margin-top: 10px; align-items: center; }
         .global-warning { background: #fffbeb; border: 1px solid #fef3c7; color: #b45309; padding: 12px; border-radius: 6px; margin-bottom: 15px; font-size: 14px; font-weight: 500; text-align: center; }
@@ -136,7 +135,6 @@ INDEX_HTML = """<!DOCTYPE html>
         </div>
 
         <div class="grid">
-            <!-- Vehicle Management Panel -->
             <div class="panel">
                 <h2>🚗 Add New Fleet Vehicle</h2>
                 <form id="vehicleForm" onsubmit="addVehicle(event)" class="form-group">
@@ -150,7 +148,6 @@ INDEX_HTML = """<!DOCTYPE html>
                 <div style="margin-top:15px;" id="vehicleManagementList"></div>
             </div>
 
-            <!-- Form Log Entries Panel -->
             <div class="panel">
                 <h2>➕ Log Entry Sheets</h2>
                 <div id="globalViewNotice" class="global-warning">
@@ -180,9 +177,9 @@ INDEX_HTML = """<!DOCTYPE html>
                         <input type="date" id="sDate" required>
                         <input type="number" step="any" id="sOdo" placeholder="Odometer Value (km)" required>
                         <input type="number" step="any" id="sCost" placeholder="Total Cost (₹)" required>
-                        <input type="text" id="sStation" placeholder="Service Station / Workshop (Optional)">
-                        <input type="date" id="sNextDate" placeholder="Next Service Due Date">
-                        <textarea id="sNotes" placeholder="Additional Notes / Details"></textarea>
+                        <input type="text" id="sStation" placeholder="Workshop / Service Station Name (Optional)">
+                        <input type="date" id="sNextDate" placeholder="Next Recommended Service Date Due">
+                        <textarea id="sNotes" placeholder="Additional Notes / Detailed Parts List Summary"></textarea>
                         <button type="submit">Save Service Log</button>
                     </form>
                 </div>
@@ -190,13 +187,12 @@ INDEX_HTML = """<!DOCTYPE html>
                 <hr style="border:0; border-top:1px solid var(--border); margin:20px 0;">
                 <h2>💾 Data Backup Management Tools</h2>
                 <div class="backup-controls">
-                    <button class="secondary" onclick="exportData()">📤 Export Backup JSON</button>
+                    <button class="secondary" onclick="exportData()">📤 Export Cloud Backup JSON</button>
                     <input type="file" id="importFile" accept=".json" style="display:none;" onchange="importData(event)">
-                    <button class="secondary" onclick="document.getElementById('importFile').click()">📥 Import Backup JSON</button>
+                    <button class="secondary" onclick="document.getElementById('importFile').click()">📥 Import Local Backup JSON</button>
                 </div>
             </div>
 
-            <!-- Data Tables -->
             <div class="panel full-width">
                 <h2>⛽ Fuel Histories <span style="font-size:12px; font-weight:normal; color:#6b7280;">(Drag column borders to resize. Press Enter inside a cell to save edits)</span></h2>
                 <div class="table-container">
@@ -224,14 +220,14 @@ INDEX_HTML = """<!DOCTYPE html>
                     <table id="serviceTable">
                         <thead>
                             <tr>
-                                <th style="width: 150px;">Vehicle Profile<div class="resizer"></div></th>
+                                <th style="width: 140px;">Vehicle Profile<div class="resizer"></div></th>
                                 <th style="width: 120px;">Service Date<div class="resizer"></div></th>
-                                <th style="width: 180px;">Service Action Type<div class="resizer"></div></th>
+                                <th style="width: 160px;">Service Action Type<div class="resizer"></div></th>
                                 <th style="width: 140px;">Odometer (km)<div class="resizer"></div></th>
                                 <th style="width: 120px;">Cost (₹)<div class="resizer"></div></th>
-                                <th style="width: 200px;">Service Station / Workshop<div class="resizer"></div></th>
-                                <th style="width: 130px;">Next Due Date<div class="resizer"></div></th>
-                                <th style="width: 300px;">Notes / Item Summaries<div class="resizer"></div></th>
+                                <th style="width: 180px;">Service Station / Workshop<div class="resizer"></div></th>
+                                <th style="width: 180px;">Next Due Date & Status<div class="resizer"></div></th>
+                                <th style="width: 250px;">Notes / Item Summaries<div class="resizer"></div></th>
                                 <th style="width: 100px;">Action</th>
                             </tr>
                         </thead>
@@ -246,8 +242,8 @@ INDEX_HTML = """<!DOCTYPE html>
         const API = window.location.origin;
         let vehicleCache = {};
 
-        window.onload = function() {
-            loadVehicles();
+        window.onload = function() { 
+            loadVehicles(); 
             initResizableTables();
         };
 
@@ -256,34 +252,33 @@ INDEX_HTML = """<!DOCTYPE html>
             document.getElementById('serviceForm').style.display = type === 'service' ? 'flex' : 'none';
         }
 
-        // Spreadsheet Column Edge Drag-Resize Logic
         function initResizableTables() {
             document.querySelectorAll('table').forEach(table => {
                 const cols = table.querySelectorAll('th');
                 cols.forEach(col => {
                     const resizer = col.querySelector('.resizer');
                     if (!resizer) return;
-
+                    
                     let startX, startWidth;
-
+                    
                     resizer.addEventListener('mousedown', e => {
                         startX = e.pageX;
                         startWidth = col.offsetWidth;
                         resizer.classList.add('resizing');
-
+                        
                         function onMouseMove(moveEvent) {
                             const currentWidth = startWidth + (moveEvent.pageX - startX);
-                            if (currentWidth > 50) { // Enforces lower bounds
+                            if (currentWidth > 50) {
                                 col.style.width = currentWidth + 'px';
                             }
                         }
-
+                        
                         function onMouseUp() {
                             resizer.classList.remove('resizing');
                             document.removeEventListener('mousemove', onMouseMove);
                             document.removeEventListener('mouseup', onMouseUp);
                         }
-
+                        
                         document.addEventListener('mousemove', onMouseMove);
                         document.addEventListener('mouseup', onMouseUp);
                         e.preventDefault();
@@ -292,8 +287,32 @@ INDEX_HTML = """<!DOCTYPE html>
             });
         }
 
+        function calculateDueBadge(dateStr) {
+            if (!dateStr || dateStr.trim() === "") return "";
+            
+            const targetDate = new Date(dateStr);
+            if (isNaN(targetDate.getTime())) return "";
+            
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            targetDate.setHours(0,0,0,0);
+            
+            const diffTime = targetDate.getTime() - today.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            if (diffDays < 0) {
+                return `<br><span class="badge badge-overdue">🟥 Overdue by \${Math.abs(diffDays)} Days</span>`;
+            } else if (diffDays === 0) {
+                return `<br><span class="badge badge-overdue">🚨 Due Today!</span>`;
+            } else if (diffDays <= 30) {
+                return `<br><span class="badge badge-warning">🟨 Due in \${diffDays} Days</span>`;
+            } else {
+                return `<br><span class="badge badge-safe">🟩 Safe (\${diffDays} Days Left)</span>`;
+            }
+        }
+
         async function loadVehicles() {
-            const res = await fetch(`${API}/api/vehicles`);
+            const res = await fetch(\`\${API}/api/vehicles\`);
             const data = await res.json();
             const select = document.getElementById('vehicleSelect');
             const mgmtDiv = document.getElementById('vehicleManagementList');
@@ -305,10 +324,10 @@ INDEX_HTML = """<!DOCTYPE html>
             data.forEach(v => {
                 const nameDisplay = v.nickname || v.name;
                 vehicleCache[v.id] = nameDisplay;
-                select.innerHTML += `<option value="${v.id}">${nameDisplay}</option>`;
+                select.innerHTML += `<option value="\${v.id}">\${nameDisplay}</option>`;
                 mgmtDiv.innerHTML += `<div style="display:flex; justify-content:space-between; margin-bottom:5px; font-size:14px; background:#f8fafc; padding:6px; border-radius:4px;">
-                    <span>• <strong>${nameDisplay}</strong> (${v.type})</span>
-                    <button class="delete" style="padding:2px 6px; font-size:11px;" onclick="deleteVehicle(${v.id})">Delete Profile</button>
+                    <span>• <strong>\${nameDisplay}</strong> (\${v.type})</span>
+                    <button class="delete" style="padding:2px 6px; font-size:11px;" onclick="deleteVehicle(\${v.id})">Delete Profile</button>
                 </div>`;
             });
             loadVehicleData();
@@ -323,14 +342,14 @@ INDEX_HTML = """<!DOCTYPE html>
                 make_model: document.getElementById('vModel').value,
                 fuel_capacity: parseFloat(document.getElementById('vCapacity').value) || 0
             };
-            await fetch(`${API}/api/vehicles`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
+            await fetch(\`\${API}/api/vehicles\`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
             document.getElementById('vehicleForm').reset();
             loadVehicles();
         }
 
         async function deleteVehicle(id) {
             if(!confirm("Are you sure you want to drop this vehicle configuration profile alongside all attached historical logs permanently?")) return;
-            await fetch(`${API}/api/vehicles/delete?id=${id}`, { method: 'DELETE' });
+            await fetch(\`\${API}/api/vehicles/delete?id=\${id}\`, { method: 'DELETE' });
             loadVehicles();
         }
 
@@ -353,56 +372,57 @@ INDEX_HTML = """<!DOCTYPE html>
         }
 
         async function fetchAnalytics(vId) {
-            const url = vId === "ALL" ? `${API}/api/analytics?vehicle_id=ALL` : `${API}/api/analytics?vehicle_id=${vId}`;
+            const url = vId === "ALL" ? `\${API}/api/analytics?vehicle_id=0` : `\${API}/api/analytics?vehicle_id=\${vId}`;
             const res = await fetch(url);
             const a = await res.json();
-            document.getElementById('statFuel').innerText = `₹${a.total_fuel_cost.toFixed(2)}`;
-            document.getElementById('statService').innerText = `₹${a.total_service_cost.toFixed(2)}`;
-            document.getElementById('statTco').innerText = `₹${a.tco.toFixed(2)}`;
-            document.getElementById('statMileage').innerText = a.avg_mileage !== "N/A" ? `${a.avg_mileage} km/L` : "N/A";
+            document.getElementById('statFuel').innerText = `₹\${a.total_fuel_cost.toFixed(2)}`;
+            document.getElementById('statService').innerText = `₹\${a.total_service_cost.toFixed(2)}`;
+            document.getElementById('statTco').innerText = `₹\${a.tco.toFixed(2)}`;
+            document.getElementById('statMileage').innerText = a.avg_mileage !== "N/A" ? `\${a.avg_mileage} km/L` : "N/A";
         }
 
         async function fetchFuelLogs(vId) {
-            const url = vId === "ALL" ? `${API}/api/fuel?vehicle_id=ALL` : `${API}/api/fuel?vehicle_id=${vId}`;
+            const url = vId === "ALL" ? `\${API}/api/fuel?vehicle_id=0` : `\${API}/api/fuel?vehicle_id=\${vId}`;
             const res = await fetch(url);
             const data = await res.json();
             const tbody = document.getElementById('fuelTableBody');
             tbody.innerHTML = '';
             
             data.forEach(r => {
-                const vehicleLabel = vehicleCache[r.vehicle_id] || `ID: ${r.vehicle_id}`;
+                const vehicleLabel = vehicleCache[r.vehicle_id] || `ID: \${r.vehicle_id}`;
                 tbody.innerHTML += `<tr>
-                    <td><div style="font-weight:600; color:#374151;">${vehicleLabel}</div></td>
-                    <td><input class="inline-edit" value="${r.date}" onkeydown="handleEdit(event, 'fuel', 'date', ${r.id})"></td>
-                    <td><input class="inline-edit" type="number" step="any" value="${r.odometer}" onkeydown="handleEdit(event, 'fuel', 'odometer', ${r.id})"></td>
-                    <td><input class="inline-edit" type="number" step="any" value="${r.fuel_amount}" onkeydown="handleEdit(event, 'fuel', 'fuel_amount', ${r.id})"></td>
-                    <td><input class="inline-edit" type="number" step="any" value="${r.total_cost}" onkeydown="handleEdit(event, 'fuel', 'total_cost', ${r.id})"></td>
-                    <td><input class="inline-edit" value="${r.fuel_station || ''}" onkeydown="handleEdit(event, 'fuel', 'fuel_station', ${r.id})"></td>
-                    <td><input class="inline-edit" type="number" value="${r.is_full}" onkeydown="handleEdit(event, 'fuel', 'is_full', ${r.id})"></td>
-                    <td><button class="delete" style="padding:4px 8px; font-size:12px;" onclick="deleteRow('fuel', ${r.id})">Delete</button></td>
+                    <td><div style="font-weight:600; color:#374151;">\${vehicleLabel}</div></td>
+                    <td><input class="inline-edit" value="\${r.date}" onkeydown="handleEdit(event, 'fuel', 'date', \${r.id})"></td>
+                    <td><input class="inline-edit" type="number" step="any" value="\${r.odometer}" onkeydown="handleEdit(event, 'fuel', 'odometer', \${r.id})"></td>
+                    <td><input class="inline-edit" type="number" step="any" value="\${r.fuel_amount}" onkeydown="handleEdit(event, 'fuel', 'fuel_amount', \${r.id})"></td>
+                    <td><input class="inline-edit" type="number" step="any" value="\${r.total_cost}" onkeydown="handleEdit(event, 'fuel', 'total_cost', \${r.id})"></td>
+                    <td><input class="inline-edit" value="\${r.fuel_station || ''}" onkeydown="handleEdit(event, 'fuel', 'fuel_station', \${r.id})"></td>
+                    <td><input class="inline-edit" type="number" value="\${r.is_full}" onkeydown="handleEdit(event, 'fuel', 'is_full', \${r.id})"></td>
+                    <td><button class="delete" style="padding:4px 8px; font-size:12px;" onclick="deleteRow('fuel', \${r.id})">Delete</button></td>
                 </tr>`;
             });
         }
 
         async function fetchServiceLogs(vId) {
-            const url = vId === "ALL" ? `${API}/api/service?vehicle_id=ALL` : `${API}/api/service?vehicle_id=${vId}`;
+            const url = vId === "ALL" ? `\${API}/api/service?vehicle_id=0` : `\${API}/api/service?vehicle_id=\${vId}`;
             const res = await fetch(url);
             const data = await res.json();
             const tbody = document.getElementById('serviceTableBody');
             tbody.innerHTML = '';
             
             data.forEach(r => {
-                const vehicleLabel = vehicleCache[r.vehicle_id] || `ID: ${r.vehicle_id}`;
+                const vehicleLabel = vehicleCache[r.vehicle_id] || `ID: \${r.vehicle_id}`;
+                const badgeHtml = calculateDueBadge(r.next_service_date);
                 tbody.innerHTML += `<tr>
-                    <td><div style="font-weight:600; color:#374151;">${vehicleLabel}</div></td>
-                    <td><input class="inline-edit" value="${r.date}" onkeydown="handleEdit(event, 'service', 'date', ${r.id})"></td>
-                    <td><input class="inline-edit" value="${r.service_type}" onkeydown="handleEdit(event, 'service', 'service_type', ${r.id})"></td>
-                    <td><input class="inline-edit" type="number" step="any" value="${r.odometer}" onkeydown="handleEdit(event, 'service', 'odometer', ${r.id})"></td>
-                    <td><input class="inline-edit" type="number" step="any" value="${r.cost}" onkeydown="handleEdit(event, 'service', 'cost', ${r.id})"></td>
-                    <td><input class="inline-edit" value="${r.service_station || ''}" onkeydown="handleEdit(event, 'service', 'service_station', ${r.id})"></td>
-                    <td><input class="inline-edit" value="${r.next_service_date || ''}" onkeydown="handleEdit(event, 'service', 'next_service_date', ${r.id})"></td>
-                    <td><textarea class="notes-textarea" onblur="handleTextareaBlur(this, ${r.id})" onkeydown="handleTextareaKey(event, this, ${r.id})">${r.notes || ''}</textarea></td>
-                    <td><button class="delete" style="padding:4px 8px; font-size:12px;" onclick="deleteRow('service', ${r.id})">Delete</button></td>
+                    <td><div style="font-weight:600; color:#374151;">	ext{\${vehicleLabel}}</div></td>
+                    <td><input class="inline-edit" value="\${r.date}" onkeydown="handleEdit(event, 'service', 'date', \${r.id})"></td>
+                    <td><input class="inline-edit" value="\${r.service_type}" onkeydown="handleEdit(event, 'service', 'service_type', \${r.id})"></td>
+                    <td><input class="inline-edit" type="number" step="any" value="\${r.odometer}" onkeydown="handleEdit(event, 'service', 'odometer', \${r.id})"></td>
+                    <td><input class="inline-edit" type="number" step="any" value="\${r.cost}" onkeydown="handleEdit(event, 'service', 'cost', \${r.id})"></td>
+                    <td><input class="inline-edit" value="\${r.service_station || ''}" onkeydown="handleEdit(event, 'service', 'service_station', \${r.id})"></td>
+                    <td><input class="inline-edit" value="\${r.next_service_date || ''}" onkeydown="handleEdit(event, 'service', 'next_service_date', \${r.id})">\${badgeHtml}</td>
+                    <td><textarea class="notes-textarea" onblur="handleTextareaBlur(this, \${r.id})" onkeydown="handleTextareaKey(event, this, \${r.id})">\${r.notes || ''}</textarea></td>
+                    <td><button class="delete" style="padding:4px 8px; font-size:12px;" onclick="deleteRow('service', \${r.id})">Delete</button></td>
                 </tr>`;
             });
         }
@@ -421,7 +441,7 @@ INDEX_HTML = """<!DOCTYPE html>
                 fuel_station: document.getElementById('fStation').value,
                 is_full: document.getElementById('fFull').checked ? 1 : 0
             };
-            await fetch(`${API}/api/fuel`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
+            await fetch(\`\${API}/api/fuel\`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
             document.getElementById('fuelForm').reset();
             loadVehicleData();
         }
@@ -441,7 +461,7 @@ INDEX_HTML = """<!DOCTYPE html>
                 notes: document.getElementById('sNotes').value,
                 next_service_date: document.getElementById('sNextDate').value
             };
-            await fetch(`${API}/api/service`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
+            await fetch(\`\${API}/api/service\`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
             document.getElementById('serviceForm').reset();
             loadVehicleData();
         }
@@ -473,23 +493,23 @@ INDEX_HTML = """<!DOCTYPE html>
 
         async function submitUpdate(table, field, id, value) {
             const body = { table, field, id, value };
-            await fetch(`${API}/api/update`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
+            await fetch(\`\${API}/api/update\`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
         }
 
         async function deleteRow(table, id) {
-            if(!confirm("Erase this configuration row metric row element from database permanent track record?")) return;
-            await fetch(`${API}/api/delete?table=${table}&id=${id}`, { method: 'DELETE' });
+            if(!confirm("Erase this configuration row metric record permanently?")) return;
+            await fetch(\`\${API}/api/delete?table=\${table}&id=\${id}\`, { method: 'DELETE' });
             loadVehicleData();
         }
 
         async function exportData() {
-            const res = await fetch(`${API}/api/export`);
+            const res = await fetch(\`\${API}/api/export\`);
             const data = await res.json();
             const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `fuel_tracker_backup_${new Date().toISOString().split('T')[0]}.json`;
+            a.download = \`fuel_tracker_backup_\${new Date().toISOString().split('T')[0]}.json\`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -502,13 +522,13 @@ INDEX_HTML = """<!DOCTYPE html>
             reader.onload = async function(evt) {
                 try {
                     const parsed = JSON.parse(evt.target.result);
-                    const res = await fetch(`${API}/api/import`, {
+                    const res = await fetch(\`\${API}/api/import\`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(parsed)
                     });
                     const resData = await res.json();
-                    alert(`Import finished! Process Log State: ${resData.status}`);
+                    alert(\`Import finished! Process Log State: \${resData.status}\`);
                     loadVehicles();
                 } catch(err) {
                     alert("Parsing file format error! Validate target backup setup.");
@@ -566,8 +586,8 @@ class BackendAPIHandler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(json.dumps(data).encode('utf-8'))
 
         elif path == "/api/fuel":
-            v_id_str = query.get('vehicle_id', ["ALL"])[0]
-            if v_id_str == "ALL":
+            v_id_str = query.get('vehicle_id', ["0"])[0]
+            if v_id_str == "0" or v_id_str == "ALL":
                 cursor.execute("SELECT id, vehicle_id, date, odometer, fuel_amount, total_cost, fuel_station, is_full FROM fuel_logs ORDER BY date DESC, odometer DESC")
             else:
                 cursor.execute("SELECT id, vehicle_id, date, odometer, fuel_amount, total_cost, fuel_station, is_full FROM fuel_logs WHERE vehicle_id = %s ORDER BY date DESC, odometer DESC", (int(v_id_str),))
@@ -577,8 +597,8 @@ class BackendAPIHandler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(json.dumps(data).encode('utf-8'))
 
         elif path == "/api/service":
-            v_id_str = query.get('vehicle_id', ["ALL"])[0]
-            if v_id_str == "ALL":
+            v_id_str = query.get('vehicle_id', ["0"])[0]
+            if v_id_str == "0" or v_id_str == "ALL":
                 cursor.execute("SELECT id, vehicle_id, date, next_service_date, service_type, odometer, cost, service_station, notes FROM service_logs ORDER BY date DESC, odometer DESC")
             else:
                 cursor.execute("SELECT id, vehicle_id, date, next_service_date, service_type, odometer, cost, service_station, notes FROM service_logs WHERE vehicle_id = %s ORDER BY date DESC, odometer DESC", (int(v_id_str),))
@@ -588,9 +608,9 @@ class BackendAPIHandler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(json.dumps(data).encode('utf-8'))
 
         elif path == "/api/analytics":
-            v_id_str = query.get('vehicle_id', ["ALL"])[0]
+            v_id_str = query.get('vehicle_id', ["0"])[0]
             
-            if v_id_str == "ALL":
+            if v_id_str == "0" or v_id_str == "ALL":
                 cursor.execute("SELECT COALESCE(SUM(total_cost), 0) FROM fuel_logs")
                 total_fuel_cost = float(cursor.fetchone()[0])
                 cursor.execute("SELECT COALESCE(SUM(cost), 0) FROM service_logs")
@@ -602,7 +622,7 @@ class BackendAPIHandler(http.server.BaseHTTPRequestHandler):
                 total_fuel_cost = float(cursor.fetchone()[0])
                 cursor.execute("SELECT COALESCE(SUM(cost), 0) FROM service_logs WHERE vehicle_id = %s", (v_id,))
                 total_service_cost = float(cursor.fetchone()[0])
-                
+
                 cursor.execute("SELECT odometer, fuel_amount, is_full FROM fuel_logs WHERE vehicle_id = %s ORDER BY odometer ASC", (v_id,))
                 logs = cursor.fetchall()
                 avg_mileage = "N/A"
@@ -611,7 +631,7 @@ class BackendAPIHandler(http.server.BaseHTTPRequestHandler):
                     total_consumed_fuel = 0.0
                     last_full_odo = None
                     pending_fuel = 0.0
-                    
+
                     for log in logs:
                         odo, fuel, is_full = log[0], log[1], log[2]
                         if is_full == 1:
@@ -623,10 +643,10 @@ class BackendAPIHandler(http.server.BaseHTTPRequestHandler):
                         else:
                             if last_full_odo is not None:
                                 pending_fuel += fuel
-                                
+
                     if total_consumed_fuel > 0:
                         avg_mileage = round(total_distance / total_consumed_fuel, 2)
-                        
+
             analytics = {
                 "total_fuel_cost": total_fuel_cost,
                 "total_service_cost": total_service_cost,
@@ -640,15 +660,15 @@ class BackendAPIHandler(http.server.BaseHTTPRequestHandler):
             cursor.execute("SELECT id, nickname, name, type, make_model, fuel_capacity FROM vehicles")
             v_rows = cursor.fetchall()
             vehicles = [{"id": r[0], "nickname": r[1], "name": r[2], "type": r[3], "make_model": r[4], "fuel_capacity": r[5]} for r in v_rows]
-            
+
             cursor.execute("SELECT id, vehicle_id, date, odometer, fuel_amount, total_cost, fuel_station, is_full FROM fuel_logs")
             f_rows = cursor.fetchall()
             fuel = [{"id": r[0], "vehicle_id": r[1], "date": r[2], "odometer": r[3], "fuel_amount": r[4], "total_cost": r[5], "fuel_station": r[6], "is_full": r[7]} for r in f_rows]
-            
+
             cursor.execute("SELECT id, vehicle_id, date, next_service_date, service_type, odometer, cost, service_station, notes FROM service_logs")
             s_rows = cursor.fetchall()
             service = [{"id": r[0], "vehicle_id": r[1], "date": r[2], "next_service_date": r[3], "service_type": r[4], "odometer": r[5], "cost": r[6], "service_station": r[7], "notes": r[8]} for r in s_rows]
-            
+
             backup = {"vehicles": vehicles, "fuel_logs": fuel, "service_logs": service}
             self._set_headers(200)
             self.wfile.write(json.dumps(backup).encode('utf-8'))
@@ -692,25 +712,26 @@ class BackendAPIHandler(http.server.BaseHTTPRequestHandler):
         elif path == "/api/import":
             try:
                 cursor.execute("TRUNCATE TABLE vehicles, fuel_logs, service_logs RESTART IDENTITY CASCADE;")
+                
                 v_map = {}
                 for v in data.get('vehicles', []):
                     cursor.execute("""
                         INSERT INTO vehicles (nickname, name, type, make_model, fuel_capacity) VALUES (%s, %s, %s, %s, %s) RETURNING id
                     """, (v.get('nickname'), v['name'], v['type'], v.get('make_model'), v.get('fuel_capacity')))
                     v_map[v['id']] = cursor.fetchone()[0]
-                    
+
                 for f in data.get('fuel_logs', []):
                     if f['vehicle_id'] in v_map:
                         cursor.execute("""
                             INSERT INTO fuel_logs (vehicle_id, date, odometer, fuel_amount, total_cost, fuel_station, is_full) VALUES (%s, %s, %s, %s, %s, %s, %s)
                         """, (v_map[f['vehicle_id']], f['date'], f['odometer'], f['fuel_amount'], f['total_cost'], f.get('fuel_station'), f['is_full']))
-                        
+
                 for s in data.get('service_logs', []):
                     if s['vehicle_id'] in v_map:
                         cursor.execute("""
                             INSERT INTO service_logs (vehicle_id, service_type, date, odometer, cost, service_station, notes, next_service_date) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                         """, (v_map[s['vehicle_id']], s['service_type'], s['date'], s['odometer'], s['cost'], s.get('service_station'), s.get('notes'), s.get('next_service_date')))
-                        
+
                 conn.commit()
                 self._set_headers(200)
                 self.wfile.write(json.dumps({"status": "Success"}).encode('utf-8'))
