@@ -105,12 +105,6 @@ INDEX_HTML = """<!DOCTYPE html>
         .notes-textarea { white-space: normal; word-break: break-word; resize: vertical; min-height: 32px; font-size: 13px; line-height: 1.4; padding: 4px; border: 1px solid transparent; background: transparent; width: 100%; box-sizing: border-box; }
         .notes-textarea:focus { background: #fff; border: 1px solid var(--primary); outline: none; border-radius: 4px; }
         
-        /* Dynamic Due Alert Badges */
-        .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-top: 4px; text-transform: uppercase; }
-        .badge-overdue { background-color: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; }
-        .badge-warning { background-color: #fef3c7; color: #d97706; border: 1px solid #fcd34d; }
-        .badge-safe { background-color: #d1fae5; color: #059669; border: 1px solid #6ee7b7; }
-        
         .backup-controls { display: flex; gap: 10px; margin-top: 10px; align-items: center; }
         .global-warning { background: #fffbeb; border: 1px solid #fef3c7; color: #b45309; padding: 12px; border-radius: 6px; margin-bottom: 15px; font-size: 14px; font-weight: 500; text-align: center; }
     </style>
@@ -178,8 +172,8 @@ INDEX_HTML = """<!DOCTYPE html>
                         <input type="number" step="any" id="sOdo" placeholder="Odometer Value (km)" required>
                         <input type="number" step="any" id="sCost" placeholder="Total Cost (₹)" required>
                         <input type="text" id="sStation" placeholder="Service Station / Workshop (Optional)">
-                        <input type="date" id="sNextDate" placeholder="Next Recommended Service Date Due">
-                        <textarea id="sNotes" placeholder="Additional Notes / Detailed Parts List Summary"></textarea>
+                        <input type="date" id="sNextDate" placeholder="Next Service Due Date">
+                        <textarea id="sNotes" placeholder="Additional Notes / Details"></textarea>
                         <button type="submit">Save Service Log</button>
                     </form>
                 </div>
@@ -287,30 +281,6 @@ INDEX_HTML = """<!DOCTYPE html>
             });
         }
 
-        function calculateDueBadge(dateStr) {
-            if (!dateStr || dateStr.trim() === "") return "";
-            
-            const targetDate = new Date(dateStr);
-            if (isNaN(targetDate.getTime())) return "";
-            
-            const today = new Date();
-            today.setHours(0,0,0,0);
-            targetDate.setHours(0,0,0,0);
-            
-            const diffTime = targetDate.getTime() - today.getTime();
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            
-            if (diffDays < 0) {
-                return `<br><span class="badge badge-overdue">🟥 Overdue by \${Math.abs(diffDays)} Days</span>`;
-            } else if (diffDays === 0) {
-                return `<br><span class="badge badge-overdue">🚨 Due Today!</span>`;
-            } else if (diffDays <= 30) {
-                return `<br><span class="badge badge-warning">🟨 Due in \${diffDays} Days</span>`;
-            } else {
-                return `<br><span class="badge badge-safe">🟩 Safe (\${diffDays} Days Left)</span>`;
-            }
-        }
-
         async function loadVehicles() {
             const res = await fetch(\`\${API}/api/vehicles\`);
             const data = await res.json();
@@ -324,11 +294,11 @@ INDEX_HTML = """<!DOCTYPE html>
             data.forEach(v => {
                 const nameDisplay = v.nickname || v.name;
                 vehicleCache[v.id] = nameDisplay;
-                select.innerHTML += `<option value="\${v.id}">\${nameDisplay}</option>`;
-                mgmtDiv.innerHTML += `<div style="display:flex; justify-content:space-between; margin-bottom:5px; font-size:14px; background:#f8fafc; padding:6px; border-radius:4px;">
+                select.innerHTML += \`<option value="\${v.id}">\${nameDisplay}</option>\`;
+                mgmtDiv.innerHTML += \`<div style="display:flex; justify-content:space-between; margin-bottom:5px; font-size:14px; background:#f8fafc; padding:6px; border-radius:4px;">
                     <span>• <strong>\${nameDisplay}</strong> (\${v.type})</span>
                     <button class="delete" style="padding:2px 6px; font-size:11px;" onclick="deleteVehicle(\${v.id})">Delete Profile</button>
-                </div>`;
+                </div>\`;
             });
             loadVehicleData();
         }
@@ -412,7 +382,6 @@ INDEX_HTML = """<!DOCTYPE html>
             
             data.forEach(r => {
                 const vehicleLabel = vehicleCache[r.vehicle_id] || \`ID: \${r.vehicle_id}\`;
-                const badgeHtml = calculateDueBadge(r.next_service_date);
                 tbody.innerHTML += \`<tr>
                     <td><div style="font-weight:600; color:#374151;">\${vehicleLabel}</div></td>
                     <td><input class="inline-edit" value="\${r.date}" onkeydown="handleEdit(event, 'service', 'date', \${r.id})"></td>
@@ -420,7 +389,7 @@ INDEX_HTML = """<!DOCTYPE html>
                     <td><input class="inline-edit" type="number" step="any" value="\${r.odometer}" onkeydown="handleEdit(event, 'service', 'odometer', \${r.id})"></td>
                     <td><input class="inline-edit" type="number" step="any" value="\${r.cost}" onkeydown="handleEdit(event, 'service', 'cost', \${r.id})"></td>
                     <td><input class="inline-edit" value="\${r.service_station || ''}" onkeydown="handleEdit(event, 'service', 'service_station', \${r.id})"></td>
-                    <td><input class="inline-edit" value="\${r.next_service_date || ''}" onkeydown="handleEdit(event, 'service', 'next_service_date', \--r.id})">\${badgeHtml}</td>
+                    <td><input class="inline-edit" value="\${r.next_service_date || ''}" onkeydown="handleEdit(event, 'service', 'next_service_date', \${r.id})"></td>
                     <td><textarea class="notes-textarea" onblur="handleTextareaBlur(this, \${r.id})" onkeydown="handleTextareaKey(event, this, \${r.id})">\${r.notes || ''}</textarea></td>
                     <td><button class="delete" style="padding:4px 8px; font-size:12px;" onclick="deleteRow('service', \${r.id})">Delete</button></td>
                 </tr>\`;
@@ -516,7 +485,7 @@ INDEX_HTML = """<!DOCTYPE html>
         }
 
         async function importData(e) {
-            const file = e.target.files[0];
+            const file = e.target.files;
             if (!file) return;
             const reader = new FileReader();
             reader.onload = async function(evt) {
@@ -547,7 +516,7 @@ INDEX_HTML = """<!DOCTYPE html>
 class BackendAPIHandler(http.server.BaseHTTPRequestHandler):
     
     def log_message(self, format, *args):
-        return  # Keep terminal logs clean
+        print(f"[{self.date_time_string()}] " + (format % args))
 
     def _set_headers(self, status=200, content_type="application/json"):
         self.send_response(status)
