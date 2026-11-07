@@ -81,6 +81,55 @@ def init_db():
     conn.close()
 
 
+def calc_mileage(logs):
+    """Average mileage (km/L) from fuel logs.
+
+    logs: iterable of (odometer, fuel_amount, is_full).
+
+    Returns (value, basis) where basis is one of:
+      "full_tank"    - accurate: distance between full-tank fills / fuel used in between
+                       (partial fills in between are added to the fuel used)
+      "estimated"    - fallback when there are not enough full-tank fills: total distance from
+                       the first to the last log / fuel added after the first log
+      "insufficient" - fewer than 2 usable logs (value is "N/A")
+    """
+    clean = []
+    for odo, fuel, full in logs:
+        if odo is None or fuel is None or float(fuel) <= 0:
+            continue
+        clean.append((float(odo), float(fuel), bool(full)))
+    clean.sort(key=lambda x: x[0])
+
+    if len(clean) < 2:
+        return "N/A", "insufficient"
+
+    # 1) Accurate method: full tank to full tank
+    total_distance = 0.0
+    total_fuel = 0.0
+    last_full_odo = None
+    pending_fuel = 0.0
+    for odo, fuel, full in clean:
+        if full:
+            if last_full_odo is not None:
+                total_distance += odo - last_full_odo
+                total_fuel += pending_fuel + fuel
+                pending_fuel = 0.0
+            last_full_odo = odo
+        elif last_full_odo is not None:
+            pending_fuel += fuel
+    if total_fuel > 0 and total_distance > 0:
+        return round(total_distance / total_fuel, 2), "full_tank"
+
+    # 2) Fallback estimate: each fill covers the distance driven since the previous log,
+    #    so ignore the first fill's fuel (it was used before the first odometer reading)
+    distance = clean[-1][0] - clean[0][0]
+    fuel_used = sum(f for _, f, _ in clean[1:])
+    if distance > 0 and fuel_used > 0:
+        return round(distance / fuel_used, 2), "estimated"
+
+    return "N/A", "insufficient"
+
+
 # Embedded Frontend HTML Dashboard Page.
 # NOTE: this is a RAW string (r"""...""") on purpose. In a normal string Python turns \' into ',
 # which breaks the JavaScript inside and stops every button from working.
@@ -152,7 +201,7 @@ INDEX_HTML = r"""<!DOCTYPE html>
             <div class="stat-card"><h3>Total Fuel Cost</h3><p id="statFuel">₹0.00</p></div>
             <div class="stat-card"><h3>Total Service Cost</h3><p id="statService">₹0.00</p></div>
             <div class="stat-card"><h3>Total Cost of Ownership</h3><p id="statTco">₹0.00</p></div>
-            <div class="stat-card"><h3>Avg Mileage</h3><p id="statMileage">N/A</p></div>
+            <div class="stat-card"><h3>Avg Mileage</h3><p id="statMileage">N/A</p><div id="statMileageNote" style="font-size:11px; color:#6b7280; margin-top:3px; min-height:14px;"></div></div>
         </div>
 
         <div class="grid">
@@ -471,7 +520,19 @@ INDEX_HTML = r"""<!DOCTYPE html>
                 document.getElementById('statFuel').innerText = '₹' + a.total_fuel_cost.toFixed(2);
                 document.getElementById('statService').innerText = '₹' + a.total_service_cost.toFixed(2);
                 document.getElementById('statTco').innerText = '₹' + a.tco.toFixed(2);
-                document.getElementById('statMileage').innerText = a.avg_mileage !== "N/A" ? a.avg_mileage + ' km/L' : "N/A";
+                const mileageEl = document.getElementById('statMileage');
+                const noteEl = document.getElementById('statMileageNote');
+                if (a.avg_mileage === "N/A") {
+                    mileageEl.innerText = "N/A";
+                    noteEl.innerText = a.mileage_basis === 'all_vehicles' ? 'Select a vehicle to see mileage'
+                                     : 'Add at least 2 fuel logs';
+                } else if (a.mileage_basis === 'estimated') {
+                    mileageEl.innerText = '~' + a.avg_mileage + ' km/L';
+                    noteEl.innerText = 'Estimate (not enough full-tank fills)';
+                } else {
+                    mileageEl.innerText = a.avg_mileage + ' km/L';
+                    noteEl.innerText = 'Based on full-tank fills';
+                }
             } catch (err) { console.error(err); }
         }
 
@@ -798,6 +859,7 @@ class BackendAPIHandler(http.server.BaseHTTPRequestHandler):
                     cursor.execute("SELECT COALESCE(SUM(cost), 0) FROM service_logs")
                     total_service_cost = float(cursor.fetchone()[0])
                     avg_mileage = "N/A"
+                    mileage_basis = "all_vehicles"
                 else:
                     v_id = int(v_id_str)
                     cursor.execute("SELECT COALESCE(SUM(total_cost), 0) FROM fuel_logs WHERE vehicle_id = %s", (v_id,))
@@ -806,33 +868,14 @@ class BackendAPIHandler(http.server.BaseHTTPRequestHandler):
                     total_service_cost = float(cursor.fetchone()[0])
 
                     cursor.execute("SELECT odometer, fuel_amount, is_full FROM fuel_logs WHERE vehicle_id = %s ORDER BY odometer ASC", (v_id,))
-                    logs = cursor.fetchall()
-                    avg_mileage = "N/A"
-                    if len(logs) >= 2:
-                        total_distance = 0.0
-                        total_consumed_fuel = 0.0
-                        last_full_odo = None
-                        pending_fuel = 0.0
-
-                        for l_odo, l_fuel, l_full in logs:
-                            if l_full == 1:
-                                if last_full_odo is not None:
-                                    total_distance += (l_odo - last_full_odo)
-                                    total_consumed_fuel += (pending_fuel + l_fuel)
-                                    pending_fuel = 0.0
-                                last_full_odo = l_odo
-                            else:
-                                if last_full_odo is not None:
-                                    pending_fuel += l_fuel
-
-                        if total_consumed_fuel > 0:
-                            avg_mileage = round(total_distance / total_consumed_fuel, 2)
+                    avg_mileage, mileage_basis = calc_mileage(cursor.fetchall())
 
                 self._send_json({
                     "total_fuel_cost": total_fuel_cost,
                     "total_service_cost": total_service_cost,
                     "tco": total_fuel_cost + total_service_cost,
-                    "avg_mileage": avg_mileage
+                    "avg_mileage": avg_mileage,
+                    "mileage_basis": mileage_basis
                 })
 
             elif path == "/api/export":
