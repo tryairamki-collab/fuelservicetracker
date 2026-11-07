@@ -136,7 +136,7 @@ INDEX_HTML = """<!DOCTYPE html>
                     <input type="text" id="vName" placeholder="Official Structural Model Name (e.g., Thunderbird 350)" required>
                     <input type="text" id="vType" placeholder="Type (e.g., Bike, Sedan, SUV)" required>
                     <input type="text" id="vModel" placeholder="Manufacturer Make / Year">
-                    <input type="number" step="any" id="vCapacity" placeholder="Tank Fuel Capacity (Liters)">
+                    <input type="number" min="0" step="0.1" id="vCapacity" placeholder="Tank Fuel Capacity (Liters)">
                     <button type="submit">Save Vehicle Profile</button>
                 </form>
                 <div style="margin-top:15px;" id="vehicleManagementList"></div>
@@ -305,12 +305,13 @@ INDEX_HTML = """<!DOCTYPE html>
 
         async function addVehicle(e) {
             e.preventDefault();
+            const capacityInput = document.getElementById('vCapacity').value.replace(/[^0-9.]/g, '');
             const body = {
                 nickname: document.getElementById('vNickname').value,
                 name: document.getElementById('vName').value,
                 type: document.getElementById('vType').value,
                 make_model: document.getElementById('vModel').value,
-                fuel_capacity: parseFloat(document.getElementById('vCapacity').value) || 0
+                fuel_capacity: parseFloat(capacityInput) || 0
             };
             await fetch(API + '/api/vehicles', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
             document.getElementById('vehicleForm').reset();
@@ -690,33 +691,55 @@ class BackendAPIHandler(http.server.BaseHTTPRequestHandler):
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        if path == "/api/vehicles":
-            cursor.execute("""
-                INSERT INTO vehicles (nickname, name, type, make_model, fuel_capacity) VALUES (%s, %s, %s, %s, %s) RETURNING id
-            """, (data.get('nickname'), data['name'], data['type'], data['make_model'], data['fuel_capacity']))
-            new_id = int(cursor.fetchone()[0])
-            conn.commit()
-            self._set_headers(201)
-            self.wfile.write(json.dumps({"status": "created", "vehicle_id": new_id}).encode('utf-8'))
+        try:
+            if path == "/api/vehicles":
+                nickname = data.get('nickname', '').strip() or None
+                name = data.get('name', '').strip()
+                v_type = data.get('type', '').strip()
+                make_model = data.get('make_model', '').strip() or None
+                
+                try:
+                    fuel_capacity = float(data.get('fuel_capacity', 0))
+                except (ValueError, TypeError):
+                    fuel_capacity = 0.0
 
-        elif path == "/api/fuel":
-            cursor.execute("""
-                INSERT INTO fuel_logs (vehicle_id, date, odometer, fuel_amount, total_cost, fuel_station, is_full) VALUES (%s, %s, %s, %s, %s, %s, %s)
-            """, (data['vehicle_id'], data['date'], data['odometer'], data['fuel_amount'], data['total_cost'], data.get('fuel_station'), data['is_full']))
-            conn.commit()
-            self._set_headers(201)
-            self.wfile.write(json.dumps({"status": "success"}).encode('utf-8'))
+                if not name or not v_type:
+                    self._set_headers(400)
+                    self.wfile.write(json.dumps({"status": "Failure: Name and Type fields are strictly required."}).encode('utf-8'))
+                    return
 
-        elif path == "/api/service":
-            cursor.execute("""
-                INSERT INTO service_logs (vehicle_id, service_type, date, odometer, cost, service_station, notes, next_service_date) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            """, (data['vehicle_id'], data['service_type'], data['date'], data['odometer'], data['cost'], data.get('service_station'), data['notes'], data['next_service_date']))
-            conn.commit()
-            self._set_headers(201)
-            self.wfile.write(json.dumps({"status": "success"}).encode('utf-8'))
+                cursor.execute("""
+                    INSERT INTO vehicles (nickname, name, type, make_model, fuel_capacity) 
+                    VALUES (%s, %s, %s, %s, %s) RETURNING id
+                """, (nickname, name, v_type, make_model, fuel_capacity))
+                
+                row = cursor.fetchone()
+                new_id = int(row[0]) if row else None
+                
+                if new_id is None:
+                    raise ValueError("Database failed to return a valid vehicle ID mapping.")
 
-        elif path == "/api/import":
-            try:
+                conn.commit()
+                self._set_headers(201)
+                self.wfile.write(json.dumps({"status": "created", "vehicle_id": new_id}).encode('utf-8'))
+
+            elif path == "/api/fuel":
+                cursor.execute("""
+                    INSERT INTO fuel_logs (vehicle_id, date, odometer, fuel_amount, total_cost, fuel_station, is_full) VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """, (data['vehicle_id'], data['date'], data['odometer'], data['fuel_amount'], data['total_cost'], data.get('fuel_station'), data['is_full']))
+                conn.commit()
+                self._set_headers(201)
+                self.wfile.write(json.dumps({"status": "success"}).encode('utf-8'))
+
+            elif path == "/api/service":
+                cursor.execute("""
+                    INSERT INTO service_logs (vehicle_id, service_type, date, odometer, cost, service_station, notes, next_service_date) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                """, (data['vehicle_id'], data['service_type'], data['date'], data['odometer'], data['cost'], data.get('service_station'), data['notes'], data['next_service_date']))
+                conn.commit()
+                self._set_headers(201)
+                self.wfile.write(json.dumps({"status": "success"}).encode('utf-8'))
+
+            elif path == "/api/import":
                 cursor.execute("TRUNCATE TABLE vehicles, fuel_logs, service_logs RESTART IDENTITY CASCADE;")
                 v_map = {}
                 for v in data.get('vehicles', []):
@@ -740,13 +763,15 @@ class BackendAPIHandler(http.server.BaseHTTPRequestHandler):
                 conn.commit()
                 self._set_headers(200)
                 self.wfile.write(json.dumps({"status": "Success"}).encode('utf-8'))
-            except Exception as err:
-                conn.rollback()
-                self._set_headers(500)
-                self.wfile.write(json.dumps({"status": f"Failure: {str(err)}"}).encode('utf-8'))
-
-        cursor.close()
-        conn.close()
+                
+        except Exception as err:
+            conn.rollback()
+            print(f"❌ DATABASE ERROR ENCOUNTERED: {str(err)}")
+            self._set_headers(500)
+            self.wfile.write(json.dumps({"status": f"Failure: {str(err)}"}).encode('utf-8'))
+        finally:
+            cursor.close()
+            conn.close()
 
     def do_PUT(self):
         path = urlparse(self.path).path
