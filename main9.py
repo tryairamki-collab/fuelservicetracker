@@ -324,11 +324,11 @@ INDEX_HTML = """<!DOCTYPE html>
             data.forEach(v => {
                 const nameDisplay = v.nickname || v.name;
                 vehicleCache[v.id] = nameDisplay;
-                select.innerHTML += `<option value="\${v.id}">\${nameDisplay}</option>`;
-                mgmtDiv.innerHTML += `<div style="display:flex; justify-content:space-between; margin-bottom:5px; font-size:14px; background:#f8fafc; padding:6px; border-radius:4px;">
+                select.innerHTML += \`<option value="\${v.id}">\${nameDisplay}</option>\`;
+                mgmtDiv.innerHTML += \`<div style="display:flex; justify-content:space-between; margin-bottom:5px; font-size:14px; background:#f8fafc; padding:6px; border-radius:4px;">
                     <span>• <strong>\${nameDisplay}</strong> (\${v.type})</span>
                     <button class="delete" style="padding:2px 6px; font-size:11px;" onclick="deleteVehicle(\${v.id})">Delete Profile</button>
-                </div>`;
+                </div>\`;
             });
             loadVehicleData();
         }
@@ -372,25 +372,25 @@ INDEX_HTML = """<!DOCTYPE html>
         }
 
         async function fetchAnalytics(vId) {
-            const url = vId === "ALL" ? `\${API}/api/analytics?vehicle_id=0` : `\${API}/api/analytics?vehicle_id=\${vId}`;
+            const url = vId === "ALL" ? \`\${API}/api/analytics?vehicle_id=0\` : \`\${API}/api/analytics?vehicle_id=\${vId}\`;
             const res = await fetch(url);
             const a = await res.json();
-            document.getElementById('statFuel').innerText = `₹\${a.total_fuel_cost.toFixed(2)}`;
-            document.getElementById('statService').innerText = `₹\${a.total_service_cost.toFixed(2)}`;
-            document.getElementById('statTco').innerText = `₹\${a.tco.toFixed(2)}`;
-            document.getElementById('statMileage').innerText = a.avg_mileage !== "N/A" ? `\${a.avg_mileage} km/L` : "N/A";
+            document.getElementById('statFuel').innerText = \`₹\${a.total_fuel_cost.toFixed(2)}\`;
+            document.getElementById('statService').innerText = \`₹\${a.total_service_cost.toFixed(2)}\`;
+            document.getElementById('statTco').innerText = \`₹\${a.tco.toFixed(2)}\`;
+            document.getElementById('statMileage').innerText = a.avg_mileage !== "N/A" ? \`\${a.avg_mileage} km/L\` : "N/A";
         }
 
         async function fetchFuelLogs(vId) {
-            const url = vId === "ALL" ? `\${API}/api/fuel?vehicle_id=0` : `\${API}/api/fuel?vehicle_id=\${vId}`;
+            const url = vId === "ALL" ? \`\${API}/api/fuel?vehicle_id=0\` : \`\${API}/api/fuel?vehicle_id=\${vId}\`;
             const res = await fetch(url);
             const data = await res.json();
             const tbody = document.getElementById('fuelTableBody');
             tbody.innerHTML = '';
             
             data.forEach(r => {
-                const vehicleLabel = vehicleCache[r.vehicle_id] || `ID: \${r.vehicle_id}`;
-                tbody.innerHTML += `<tr>
+                const vehicleLabel = vehicleCache[r.vehicle_id] || \`ID: \${r.vehicle_id}\`;
+                tbody.innerHTML += \`<tr>
                     <td><div style="font-weight:600; color:#374151;">\${vehicleLabel}</div></td>
                     <td><input class="inline-edit" value="\${r.date}" onkeydown="handleEdit(event, 'fuel', 'date', \${r.id})"></td>
                     <td><input class="inline-edit" type="number" step="any" value="\${r.odometer}" onkeydown="handleEdit(event, 'fuel', 'odometer', \${r.id})"></td>
@@ -399,22 +399,22 @@ INDEX_HTML = """<!DOCTYPE html>
                     <td><input class="inline-edit" value="\${r.fuel_station || ''}" onkeydown="handleEdit(event, 'fuel', 'fuel_station', \${r.id})"></td>
                     <td><input class="inline-edit" type="number" value="\${r.is_full}" onkeydown="handleEdit(event, 'fuel', 'is_full', \${r.id})"></td>
                     <td><button class="delete" style="padding:4px 8px; font-size:12px;" onclick="deleteRow('fuel', \${r.id})">Delete</button></td>
-                </tr>`;
+                </tr>\`;
             });
         }
 
         async function fetchServiceLogs(vId) {
-            const url = vId === "ALL" ? `\${API}/api/service?vehicle_id=0` : `\${API}/api/service?vehicle_id=\${vId}`;
+            const url = vId === "ALL" ? \`\${API}/api/service?vehicle_id=0\` : \`\${API}/api/service?vehicle_id=\${vId}\`;
             const res = await fetch(url);
             const data = await res.json();
             const tbody = document.getElementById('serviceTableBody');
             tbody.innerHTML = '';
             
             data.forEach(r => {
-                const vehicleLabel = vehicleCache[r.vehicle_id] || `ID: \${r.vehicle_id}`;
+                const vehicleLabel = vehicleCache[r.vehicle_id] || \`ID: \${r.vehicle_id}\`;
                 const badgeHtml = calculateDueBadge(r.next_service_date);
-                tbody.innerHTML += `<tr>
-                    <td><div style="font-weight:600; color:#374151;">	ext{\${vehicleLabel}}</div></td>
+                tbody.innerHTML += \`<tr>
+                    <td><div style="font-weight:600; color:#374151;">\${vehicleLabel}</div></td>
                     <td><input class="inline-edit" value="\${r.date}" onkeydown="handleEdit(event, 'service', 'date', \${r.id})"></td>
                     <td><input class="inline-edit" value="\${r.service_type}" onkeydown="handleEdit(event, 'service', 'service_type', \${r.id})"></td>
                     <td><input class="inline-edit" type="number" step="any" value="\${r.odometer}" onkeydown="handleEdit(event, 'service', 'odometer', \${r.id})"></td>
@@ -423,7 +423,7 @@ INDEX_HTML = """<!DOCTYPE html>
                     <td><input class="inline-edit" value="\${r.next_service_date || ''}" onkeydown="handleEdit(event, 'service', 'next_service_date', \${r.id})">\${badgeHtml}</td>
                     <td><textarea class="notes-textarea" onblur="handleTextareaBlur(this, \${r.id})" onkeydown="handleTextareaKey(event, this, \${r.id})">\${r.notes || ''}</textarea></td>
                     <td><button class="delete" style="padding:4px 8px; font-size:12px;" onclick="deleteRow('service', \${r.id})">Delete</button></td>
-                </tr>`;
+                </tr>\`;
             });
         }
 
@@ -581,9 +581,9 @@ class BackendAPIHandler(http.server.BaseHTTPRequestHandler):
         if path == "/api/vehicles":
             cursor.execute("SELECT id, nickname, name, type, make_model, fuel_capacity FROM vehicles ORDER BY id ASC")
             rows = cursor.fetchall()
-            data = [{"id": r[0], "nickname": r[1], "name": r[2], "type": r[3], "make_model": r[4], "fuel_capacity": r[5]} for r in rows]
+            vehicle_data = [{"id": r[0], "nickname": r[1], "name": r[2], "type": r[3], "make_model": r[4], "fuel_capacity": r[5]} for r in rows]
             self._set_headers(200)
-            self.wfile.write(json.dumps(data).encode('utf-8'))
+            self.wfile.write(json.dumps(vehicle_data).encode('utf-8'))
 
         elif path == "/api/fuel":
             v_id_str = query.get('vehicle_id', ["0"])[0]
