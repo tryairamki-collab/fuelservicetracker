@@ -122,6 +122,16 @@ INDEX_HTML = r"""<!DOCTYPE html>
         .notes-textarea { white-space: normal; word-break: break-word; resize: vertical; min-height: 32px; font-size: 13px; line-height: 1.4; padding: 4px; border: 1px solid transparent; background: transparent; width: 100%; box-sizing: border-box; margin-bottom: 0; }
         .notes-textarea:focus { background: #fff; border: 1px solid var(--primary); outline: none; border-radius: 4px; }
 
+        /* Next-due status: coloured left stripe + badge */
+        td.due-cell { border-left: 5px solid transparent; }
+        td.due-green  { border-left-color: #16a34a; background: #f0fdf4; }
+        td.due-yellow { border-left-color: #eab308; background: #fefce8; }
+        td.due-red    { border-left-color: #dc2626; background: #fef2f2; }
+        .due-badge { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 10px; margin: 0 0 2px 4px; }
+        .due-green .due-badge  { color: #166534; background: #dcfce7; }
+        .due-yellow .due-badge { color: #854d0e; background: #fef08a; }
+        .due-red .due-badge    { color: #991b1b; background: #fecaca; }
+
         .backup-controls { display: flex; gap: 10px; margin-top: 10px; align-items: center; }
         .global-warning { background: #fffbeb; border: 1px solid #fef3c7; color: #b45309; padding: 12px; border-radius: 6px; margin-bottom: 15px; font-size: 14px; font-weight: 500; text-align: center; }
     </style>
@@ -237,7 +247,7 @@ INDEX_HTML = r"""<!DOCTYPE html>
                                 <th style="width: 140px;">Odometer (km)<div class="resizer"></div></th>
                                 <th style="width: 120px;">Cost (₹)<div class="resizer"></div></th>
                                 <th style="width: 200px;">Service Station / Workshop<div class="resizer"></div></th>
-                                <th style="width: 130px;">Next Due Date<div class="resizer"></div></th>
+                                <th style="width: 190px;">Next Due Date<div class="resizer"></div></th>
                                 <th style="width: 300px;">Notes / Item Summaries<div class="resizer"></div></th>
                                 <th style="width: 100px;">Action</th>
                             </tr>
@@ -262,6 +272,31 @@ INDEX_HTML = r"""<!DOCTYPE html>
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;')
                 .replace(/'/g, '&#39;');
+        }
+
+        // Days until a YYYY-MM-DD due date (negative = overdue). Returns null if empty/invalid.
+        function daysUntil(dateStr) {
+            const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(dateStr || '').trim());
+            if (!m) return null;
+            const due = new Date(+m[1], +m[2] - 1, +m[3]);
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            return Math.round((due - today) / 86400000);
+        }
+
+        // Colour + label for the Next Due Date cell
+        //   30+ days = green, 7 to 29 days = yellow, under 7 days (incl. overdue) = red
+        function dueStatus(dateStr) {
+            const d = daysUntil(dateStr);
+            if (d === null) return { cls: '', label: '' };
+            let cls = d >= 30 ? 'due-green' : (d >= 7 ? 'due-yellow' : 'due-red');
+            let label;
+            if (d > 1) label = 'Due in ' + d + ' days';
+            else if (d === 1) label = 'Due in 1 day';
+            else if (d === 0) label = 'Due today';
+            else if (d === -1) label = 'Overdue by 1 day';
+            else label = 'Overdue by ' + Math.abs(d) + ' days';
+            return { cls: cls, label: label };
         }
 
         // Fetch wrapper: throws a readable error when the server returns a failure
@@ -463,6 +498,8 @@ INDEX_HTML = r"""<!DOCTYPE html>
 
                 data.forEach(r => {
                     const vehicleLabel = vehicleCache[r.vehicle_id] || 'ID: ' + r.vehicle_id;
+                    const due = dueStatus(r.next_service_date);
+                    const dueBadge = due.label ? '<span class="due-badge">' + esc(due.label) + '</span>' : '';
                     html += '<tr>' +
                         '<td><div style="font-weight:600; color:#374151;">' + esc(vehicleLabel) + '</div></td>' +
                         '<td><input class="inline-edit" value="' + esc(r.date) + '" onkeydown="handleEdit(event, \'service\', \'date\', ' + r.id + ')"></td>' +
@@ -470,7 +507,7 @@ INDEX_HTML = r"""<!DOCTYPE html>
                         '<td><input class="inline-edit" type="number" step="any" value="' + esc(r.odometer) + '" onkeydown="handleEdit(event, \'service\', \'odometer\', ' + r.id + ')"></td>' +
                         '<td><input class="inline-edit" type="number" step="any" value="' + esc(r.cost) + '" onkeydown="handleEdit(event, \'service\', \'cost\', ' + r.id + ')"></td>' +
                         '<td><input class="inline-edit" value="' + esc(r.service_station || '') + '" onkeydown="handleEdit(event, \'service\', \'service_station\', ' + r.id + ')"></td>' +
-                        '<td><input class="inline-edit" value="' + esc(r.next_service_date || '') + '" onkeydown="handleEdit(event, \'service\', \'next_service_date\', ' + r.id + ')"></td>' +
+                        '<td class="due-cell ' + due.cls + '"><input class="inline-edit" value="' + esc(r.next_service_date || '') + '" onkeydown="handleEdit(event, \'service\', \'next_service_date\', ' + r.id + ')">' + dueBadge + '</td>' +
                         '<td><textarea class="notes-textarea" onblur="handleTextareaBlur(this, ' + r.id + ')" onkeydown="handleTextareaKey(event, this, ' + r.id + ')">' + esc(r.notes || '') + '</textarea></td>' +
                         '<td><button class="delete" style="padding:4px 8px; font-size:12px;" onclick="deleteRow(\'service\', ' + r.id + ')">Delete</button></td>' +
                     '</tr>';
