@@ -362,13 +362,13 @@ INDEX_HTML = """<!DOCTYPE html>
                 const vehicleLabel = vehicleCache[r.vehicle_id] || 'ID: ' + r.vehicle_id;
                 tbody.innerHTML += '<tr>' +
                     '<td><div style="font-weight:600; color:#374151;">' + vehicleLabel + '</div></td>' +
-                    '<td><input class="inline-edit" value="' + r.date + '" onkeydown="handleEdit(event, \'fuel\', \'date\', ' + r.id + ')"></td>' +
-                    '<td><input class="inline-edit" type="number" step="any" value="' + r.odometer + '" onkeydown="handleEdit(event, \'fuel\', \'odometer\', ' + r.id + ')"></td>' +
-                    '<td><input class="inline-edit" type="number" step="any" value="' + r.fuel_amount + '" onkeydown="handleEdit(event, \'fuel\', \'fuel_amount\', ' + r.id + ')"></td>' +
-                    '<td><input class="inline-edit" type="number" step="any" value="' + r.total_cost + '" onkeydown="handleEdit(event, \'fuel\', \'total_cost\', ' + r.id + ')"></td>' +
-                    '<td><input class="inline-edit" value="' + (r.fuel_station || '') + '" onkeydown="handleEdit(event, \'fuel\', \'fuel_station\', ' + r.id + ')"></td>' +
-                    '<td><input class="inline-edit" type="number" value="' + r.is_full + '" onkeydown="handleEdit(event, \'fuel\', \'is_full\', ' + r.id + ')"></td>' +
-                    '<td><button class="delete" style="padding:4px 8px; font-size:12px;" onclick="deleteRow(\'fuel\', ' + r.id + ')">Delete</button></td>' +
+                    '<td><input class="inline-edit" value="' + r.date + '" onkeydown="handleEdit(event, 'fuel', 'date', ' + r.id + ')"></td>' +
+                    '<td><input class="inline-edit" type="number" step="any" value="' + r.odometer + '" onkeydown="handleEdit(event, 'fuel', 'odometer', ' + r.id + ')"></td>' +
+                    '<td><input class="inline-edit" type="number" step="any" value="' + r.fuel_amount + '" onkeydown="handleEdit(event, 'fuel', 'fuel_amount', ' + r.id + ')"></td>' +
+                    '<td><input class="inline-edit" type="number" step="any" value="' + r.total_cost + '" onkeydown="handleEdit(event, 'fuel', 'total_cost', ' + r.id + ')"></td>' +
+                    '<td><input class="inline-edit" value="' + (r.fuel_station || '') + '" onkeydown="handleEdit(event, 'fuel', 'fuel_station', ' + r.id + ')"></td>' +
+                    '<td><input class="inline-edit" type="number" value="' + r.is_full + '" onkeydown="handleEdit(event, 'fuel', 'is_full', ' + r.id + ')"></td>' +
+                    '<td><button class="delete" style="padding:4px 8px; font-size:12px;" onclick="deleteRow('fuel', ' + r.id + ')">Delete</button></td>' +
                 '</tr>';
             });
         }
@@ -384,14 +384,14 @@ INDEX_HTML = """<!DOCTYPE html>
                 const vehicleLabel = vehicleCache[r.vehicle_id] || 'ID: ' + r.vehicle_id;
                 tbody.innerHTML += '<tr>' +
                     '<td><div style="font-weight:600; color:#374151;">' + vehicleLabel + '</div></td>' +
-                    '<td><input class="inline-edit" value="' + r.date + '" onkeydown="handleEdit(event, \'service\', \'date\', ' + r.id + ')"></td>' +
-                    '<td><input class="inline-edit" value="' + r.service_type + '" onkeydown="handleEdit(event, \'service\', \'service_type\', ' + r.id + ')"></td>' +
-                    '<td><input class="inline-edit" type="number" step="any" value="' + r.odometer + '" onkeydown="handleEdit(event, \'service\', \'odometer\', ' + r.id + ')"></td>' +
-                    '<td><input class="inline-edit" type="number" step="any" value="' + r.cost + '" onkeydown="handleEdit(event, \'service\', \'cost\', ' + r.id + ')"></td>' +
-                    '<td><input class="inline-edit" value="' + (r.service_station || '') + '" onkeydown="handleEdit(event, \'service\', \'service_station\', ' + r.id + ')"></td>' +
-                    '<td><input class="inline-edit" value="' + (r.next_service_date || '') + '" onkeydown="handleEdit(event, \'service\', \'next_service_date\', ' + r.id + ')"></td>' +
+                    '<td><input class="inline-edit" value="' + r.date + '" onkeydown="handleEdit(event, 'service', 'date', ' + r.id + ')"></td>' +
+                    '<td><input class="inline-edit" value="' + r.service_type + '" onkeydown="handleEdit(event, 'service', 'service_type', ' + r.id + ')"></td>' +
+                    '<td><input class="inline-edit" type="number" step="any" value="' + r.odometer + '" onkeydown="handleEdit(event, 'service', 'odometer', ' + r.id + ')"></td>' +
+                    '<td><input class="inline-edit" type="number" step="any" value="' + r.cost + '" onkeydown="handleEdit(event, 'service', 'cost', ' + r.id + ')"></td>' +
+                    '<td><input class="inline-edit" value="' + (r.service_station || '') + '" onkeydown="handleEdit(event, 'service', 'service_station', ' + r.id + ')"></td>' +
+                    '<td><input class="inline-edit" value="' + (r.next_service_date || '') + '" onkeydown="handleEdit(event, 'service', 'next_service_date', ' + r.id + ')"></td>' +
                     '<td><textarea class="notes-textarea" onblur="handleTextareaBlur(this, ' + r.id + ')" onkeydown="handleTextareaKey(event, this, ' + r.id + ')">' + (r.notes || '') + '</textarea></td>' +
-                    '<td><button class="delete" style="padding:4px 8px; font-size:12px;" onclick="deleteRow(\'service\', ' + r.id + ')">Delete</button></td>' +
+                    '<td><button class="delete" style="padding:4px 8px; font-size:12px;" onclick="deleteRow('service', ' + r.id + ')">Delete</button></td>' +
                 '</tr>';
             });
         }
@@ -550,7 +550,16 @@ class BackendAPIHandler(http.server.BaseHTTPRequestHandler):
         if path == "/api/vehicles":
             cursor.execute("SELECT id, nickname, name, type, make_model, fuel_capacity FROM vehicles ORDER BY id ASC")
             rows = cursor.fetchall()
-            data = [{"id": r[0], "nickname": r[1], "name": r[2], "type": r[3], "make_model": r[4], "fuel_capacity": r[5]} for r in rows]
+            data = []
+            for v_id, v_nick, v_name, v_type, v_model, v_cap in rows:
+                data.append({
+                    "id": v_id,
+                    "nickname": v_nick,
+                    "name": v_name,
+                    "type": v_type,
+                    "make_model": v_model,
+                    "fuel_capacity": v_cap
+                })
             self._set_headers(200)
             self.wfile.write(json.dumps(data).encode('utf-8'))
 
@@ -561,7 +570,18 @@ class BackendAPIHandler(http.server.BaseHTTPRequestHandler):
             else:
                 cursor.execute("SELECT id, vehicle_id, date, odometer, fuel_amount, total_cost, fuel_station, is_full FROM fuel_logs WHERE vehicle_id = %s ORDER BY date DESC, odometer DESC", (int(v_id_str),))
             rows = cursor.fetchall()
-            data = [{"id": r[0], "vehicle_id": r[1], "date": r[2], "odometer": r[3], "fuel_amount": r[4], "total_cost": r[5], "fuel_station": r[6], "is_full": r[7]} for r in rows]
+            data = []
+            for f_id, f_v_id, f_date, f_odo, f_amt, f_cost, f_station, f_full in rows:
+                data.append({
+                    "id": f_id,
+                    "vehicle_id": f_v_id,
+                    "date": f_date,
+                    "odometer": f_odo,
+                    "fuel_amount": f_amt,
+                    "total_cost": f_cost,
+                    "fuel_station": f_station,
+                    "is_full": f_full
+                })
             self._set_headers(200)
             self.wfile.write(json.dumps(data).encode('utf-8'))
 
@@ -572,7 +592,19 @@ class BackendAPIHandler(http.server.BaseHTTPRequestHandler):
             else:
                 cursor.execute("SELECT id, vehicle_id, date, next_service_date, service_type, odometer, cost, service_station, notes FROM service_logs WHERE vehicle_id = %s ORDER BY date DESC, odometer DESC", (int(v_id_str),))
             rows = cursor.fetchall()
-            data = [{"id": r[0], "vehicle_id": r[1], "date": r[2], "next_service_date": r[3], "service_type": r[4], "odometer": r[5], "cost": r[6], "service_station": r[7], "notes": r[8]} for r in rows]
+            data = []
+            for s_id, s_v_id, s_date, s_next, s_type, s_odo, s_cost, s_station, s_notes in rows:
+                data.append({
+                    "id": s_id,
+                    "vehicle_id": s_v_id,
+                    "date": s_date,
+                    "next_service_date": s_next,
+                    "service_type": s_type,
+                    "odometer": s_odo,
+                    "cost": s_cost,
+                    "service_station": s_station,
+                    "notes": s_notes
+                })
             self._set_headers(200)
             self.wfile.write(json.dumps(data).encode('utf-8'))
 
@@ -601,8 +633,7 @@ class BackendAPIHandler(http.server.BaseHTTPRequestHandler):
                     last_full_odo = None
                     pending_fuel = 0.0
                     
-                    for log in logs:
-                        odo, fuel, is_full = log[0], log[1], log[2]
+                    for odo, fuel, is_full in logs:
                         if is_full == 1:
                             if last_full_odo is not None:
                                 total_distance += (odo - last_full_odo)
@@ -628,15 +659,21 @@ class BackendAPIHandler(http.server.BaseHTTPRequestHandler):
         elif path == "/api/export":
             cursor.execute("SELECT id, nickname, name, type, make_model, fuel_capacity FROM vehicles")
             v_rows = cursor.fetchall()
-            vehicles = [{"id": r[0], "nickname": r[1], "name": r[2], "type": r[3], "make_model": r[4], "fuel_capacity": r[5]} for r in v_rows]
+            vehicles = []
+            for v_id, v_nick, v_name, v_type, v_model, v_cap in v_rows:
+                vehicles.append({"id": v_id, "nickname": v_nick, "name": v_name, "type": v_type, "make_model": v_model, "fuel_capacity": v_cap})
             
             cursor.execute("SELECT id, vehicle_id, date, odometer, fuel_amount, total_cost, fuel_station, is_full FROM fuel_logs")
             f_rows = cursor.fetchall()
-            fuel = [{"id": r[0], "vehicle_id": r[1], "date": r[2], "odometer": r[3], "fuel_amount": r[4], "total_cost": r[5], "fuel_station": r[6], "is_full": r[7]} for r in f_rows]
+            fuel = []
+            for f_id, f_v_id, f_date, f_odo, f_amt, f_cost, f_station, f_full in f_rows:
+                fuel.append({"id": f_id, "vehicle_id": f_v_id, "date": f_date, "odometer": f_odo, "fuel_amount": f_amt, "total_cost": f_cost, "fuel_station": f_station, "is_full": f_full})
             
             cursor.execute("SELECT id, vehicle_id, date, next_service_date, service_type, odometer, cost, service_station, notes FROM service_logs")
             s_rows = cursor.fetchall()
-            service = [{"id": r[0], "vehicle_id": r[1], "date": r[2], "next_service_date": r[3], "service_type": r[4], "odometer": r[5], "cost": r[6], "service_station": r[7], "notes": r[8]} for r in s_rows]
+            service = []
+            for s_id, s_v_id, s_date, s_next, s_type, s_odo, s_cost, s_station, s_notes in s_rows:
+                service.append({"id": s_id, "vehicle_id": s_v_id, "date": s_date, "next_service_date": s_next, "service_type": s_type, "odometer": s_odo, "cost": s_cost, "service_station": s_station, "notes": s_notes})
             
             backup = {"vehicles": vehicles, "fuel_logs": fuel, "service_logs": service}
             self._set_headers(200)
@@ -657,7 +694,7 @@ class BackendAPIHandler(http.server.BaseHTTPRequestHandler):
             cursor.execute("""
                 INSERT INTO vehicles (nickname, name, type, make_model, fuel_capacity) VALUES (%s, %s, %s, %s, %s) RETURNING id
             """, (data.get('nickname'), data['name'], data['type'], data['make_model'], data['fuel_capacity']))
-            new_id = cursor.fetchone()[0]
+            new_id = int(cursor.fetchone()[0])
             conn.commit()
             self._set_headers(201)
             self.wfile.write(json.dumps({"status": "created", "vehicle_id": new_id}).encode('utf-8'))
@@ -685,8 +722,8 @@ class BackendAPIHandler(http.server.BaseHTTPRequestHandler):
                 for v in data.get('vehicles', []):
                     cursor.execute("""
                         INSERT INTO vehicles (nickname, name, type, make_model, fuel_capacity) VALUES (%s, %s, %s, %s, %s) RETURNING id
-                    """)
-                    v_map[v['id']] = cursor.fetchone()[0]
+                    """, (v.get('nickname'), v['name'], v['type'], v.get('make_model'), v.get('fuel_capacity')))
+                    v_map[v['id']] = int(cursor.fetchone()[0])
                     
                 for f in data.get('fuel_logs', []):
                     if f['vehicle_id'] in v_map:
