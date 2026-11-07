@@ -105,6 +105,12 @@ INDEX_HTML = """<!DOCTYPE html>
         .notes-textarea { white-space: normal; word-break: break-word; resize: vertical; min-height: 32px; font-size: 13px; line-height: 1.4; padding: 4px; border: 1px solid transparent; background: transparent; width: 100%; box-sizing: border-box; }
         .notes-textarea:focus { background: #fff; border: 1px solid var(--primary); outline: none; border-radius: 4px; }
         
+        /* Dynamic Due Alert Badges */
+        .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-top: 4px; text-transform: uppercase; }
+        .badge-overdue { background-color: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; }
+        .badge-warning { background-color: #fef3c7; color: #d97706; border: 1px solid #fcd34d; }
+        .badge-safe { background-color: #d1fae5; color: #059669; border: 1px solid #6ee7b7; }
+        
         .backup-controls { display: flex; gap: 10px; margin-top: 10px; align-items: center; }
         .global-warning { background: #fffbeb; border: 1px solid #fef3c7; color: #b45309; padding: 12px; border-radius: 6px; margin-bottom: 15px; font-size: 14px; font-weight: 500; text-align: center; }
     </style>
@@ -122,10 +128,10 @@ INDEX_HTML = """<!DOCTYPE html>
         </header>
 
         <div class="analytics-strip">
-            <div class="stat-card"><h3>Total Fuel Cost</h3><p id="statFuel">₹0.00</p></div>
-            <div class="stat-card"><h3>Total Service Cost</h3><p id="statService">₹0.00</p></div>
-            <div class="stat-card"><h3>Total Cost of Ownership</h3><p id="statTco">₹0.00</p></div>
-            <div class="stat-card"><h3>Avg Mileage</h3><p id="statMileage">N/A</p></div>
+            <div class="stat-card"><h3>Total Fuel Cost</h3><p id=statFuel>₹0.00</p></div>
+            <div class="stat-card"><h3>Total Service Cost</h3><p id=statService>₹0.00</p></div>
+            <div class="stat-card"><h3>Total Cost of Ownership</h3><p id=statTco>₹0.00</p></div>
+            <div class="stat-card"><h3>Avg Mileage</h3><p id=statMileage>N/A</p></div>
         </div>
 
         <div class="grid">
@@ -171,7 +177,7 @@ INDEX_HTML = """<!DOCTYPE html>
                         <input type="date" id="sDate" required>
                         <input type="number" step="any" id="sOdo" placeholder="Odometer Value (km)" required>
                         <input type="number" step="any" id="sCost" placeholder="Total Cost (₹)" required>
-                        <input type="text" id="sStation" placeholder="Service Station / Workshop (Optional)">
+                        <input type="text" id="sStation" placeholder="Workshop / Service Station Name (Optional)">
                         <input type="date" id="sNextDate" placeholder="Next Recommended Service Date Due">
                         <textarea id="sNotes" placeholder="Additional Notes / Detailed Parts List Summary"></textarea>
                         <button type="submit">Save Service Log</button>
@@ -181,9 +187,9 @@ INDEX_HTML = """<!DOCTYPE html>
                 <hr style="border:0; border-top:1px solid var(--border); margin:20px 0;">
                 <h2>💾 Data Backup Management Tools</h2>
                 <div class="backup-controls">
-                    <button class="secondary" onclick="exportData()">📤 Export Backup JSON</button>
+                    <button class="secondary" onclick="exportData()">📤 Export Cloud Backup JSON</button>
                     <input type="file" id="importFile" accept=".json" style="display:none;" onchange="importData(event)">
-                    <button class="secondary" onclick="document.getElementById('importFile').click()">📥 Import Backup JSON</button>
+                    <button class="secondary" onclick="document.getElementById('importFile').click()">📥 Import Local Backup JSON</button>
                 </div>
             </div>
 
@@ -214,14 +220,14 @@ INDEX_HTML = """<!DOCTYPE html>
                     <table id="serviceTable">
                         <thead>
                             <tr>
-                                <th style="width: 150px;">Vehicle Profile<div class="resizer"></div></th>
+                                <th style="width: 140px;">Vehicle Profile<div class="resizer"></div></th>
                                 <th style="width: 120px;">Service Date<div class="resizer"></div></th>
-                                <th style="width: 180px;">Service Action Type<div class="resizer"></div></th>
+                                <th style="width: 160px;">Service Action Type<div class="resizer"></div></th>
                                 <th style="width: 140px;">Odometer (km)<div class="resizer"></div></th>
                                 <th style="width: 120px;">Cost (₹)<div class="resizer"></div></th>
-                                <th style="width: 200px;">Service Station / Workshop<div class="resizer"></div></th>
-                                <th style="width: 130px;">Next Due Date<div class="resizer"></div></th>
-                                <th style="width: 300px;">Notes / Item Summaries<div class="resizer"></div></th>
+                                <th style="width: 180px;">Service Station / Workshop<div class="resizer"></div></th>
+                                <th style="width: 180px;">Next Due Date & Status<div class="resizer"></div></th>
+                                <th style="width: 250px;">Notes / Item Summaries<div class="resizer"></div></th>
                                 <th style="width: 100px;">Action</th>
                             </tr>
                         </thead>
@@ -281,8 +287,32 @@ INDEX_HTML = """<!DOCTYPE html>
             });
         }
 
+        function calculateDueBadge(dateStr) {
+            if (!dateStr || dateStr.trim() === "") return "";
+            
+            const targetDate = new Date(dateStr);
+            if (isNaN(targetDate.getTime())) return "";
+            
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            targetDate.setHours(0,0,0,0);
+            
+            const diffTime = targetDate.getTime() - today.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            if (diffDays < 0) {
+                return `<br><span class="badge badge-overdue">🟥 Overdue by \${Math.abs(diffDays)} Days</span>`;
+            } else if (diffDays === 0) {
+                return `<br><span class="badge badge-overdue">🚨 Due Today!</span>`;
+            } else if (diffDays <= 30) {
+                return `<br><span class="badge badge-warning">🟨 Due in \${diffDays} Days</span>`;
+            } else {
+                return `<br><span class="badge badge-safe">🟩 Safe (\${diffDays} Days Left)</span>`;
+            }
+        }
+
         async function loadVehicles() {
-            const res = await fetch(API + '/api/vehicles');
+            const res = await fetch(\`\${API}/api/vehicles\`);
             const data = await res.json();
             const select = document.getElementById('vehicleSelect');
             const mgmtDiv = document.getElementById('vehicleManagementList');
@@ -294,11 +324,11 @@ INDEX_HTML = """<!DOCTYPE html>
             data.forEach(v => {
                 const nameDisplay = v.nickname || v.name;
                 vehicleCache[v.id] = nameDisplay;
-                select.innerHTML += '<option value="' + v.id + '">' + nameDisplay + '</option>';
-                mgmtDiv.innerHTML += '<div style="display:flex; justify-content:space-between; margin-bottom:5px; font-size:14px; background:#f8fafc; padding:6px; border-radius:4px;">' +
-                    '<span>• <strong>' + nameDisplay + '</strong> (' + v.type + ')</span>' +
-                    '<button class="delete" style="padding:2px 6px; font-size:11px;" onclick="deleteVehicle(' + v.id + ')">Delete Profile</button>' +
-                '</div>';
+                select.innerHTML += `<option value="\${v.id}">\${nameDisplay}</option>`;
+                mgmtDiv.innerHTML += `<div style="display:flex; justify-content:space-between; margin-bottom:5px; font-size:14px; background:#f8fafc; padding:6px; border-radius:4px;">
+                    <span>• <strong>\${nameDisplay}</strong> (\${v.type})</span>
+                    <button class="delete" style="padding:2px 6px; font-size:11px;" onclick="deleteVehicle(\${v.id})">Delete Profile</button>
+                </div>`;
             });
             loadVehicleData();
         }
@@ -312,14 +342,14 @@ INDEX_HTML = """<!DOCTYPE html>
                 make_model: document.getElementById('vModel').value,
                 fuel_capacity: parseFloat(document.getElementById('vCapacity').value) || 0
             };
-            await fetch(API + '/api/vehicles', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
+            await fetch(\`\${API}/api/vehicles\`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
             document.getElementById('vehicleForm').reset();
             loadVehicles();
         }
 
         async function deleteVehicle(id) {
             if(!confirm("Are you sure you want to drop this vehicle configuration profile alongside all attached historical logs permanently?")) return;
-            await fetch(API + '/api/vehicles/delete?id=' + id, { method: 'DELETE' });
+            await fetch(\`\${API}/api/vehicles/delete?id=\${id}\`, { method: 'DELETE' });
             loadVehicles();
         }
 
@@ -342,57 +372,58 @@ INDEX_HTML = """<!DOCTYPE html>
         }
 
         async function fetchAnalytics(vId) {
-            const url = vId === "ALL" ? API + '/api/analytics?vehicle_id=ALL' : API + '/api/analytics?vehicle_id=' + vId;
+            const url = vId === "ALL" ? `\${API}/api/analytics?vehicle_id=0` : `\${API}/api/analytics?vehicle_id=\${vId}`;
             const res = await fetch(url);
             const a = await res.json();
-            document.getElementById('statFuel').innerText = '₹' + a.total_fuel_cost.toFixed(2);
-            document.getElementById('statService').innerText = '₹' + a.total_service_cost.toFixed(2);
-            document.getElementById('statTco').innerText = '₹' + a.tco.toFixed(2);
-            document.getElementById('statMileage').innerText = a.avg_mileage !== "N/A" ? a.avg_mileage + ' km/L' : "N/A";
+            document.getElementById('statFuel').innerText = `₹\${a.total_fuel_cost.toFixed(2)}`;
+            document.getElementById('statService').innerText = `₹\${a.total_service_cost.toFixed(2)}`;
+            document.getElementById('statTco').innerText = `₹\${a.tco.toFixed(2)}`;
+            document.getElementById('statMileage').innerText = a.avg_mileage !== "N/A" ? `\${a.avg_mileage} km/L` : "N/A";
         }
 
         async function fetchFuelLogs(vId) {
-            const url = vId === "ALL" ? API + '/api/fuel?vehicle_id=ALL' : API + '/api/fuel?vehicle_id=' + vId;
+            const url = vId === "ALL" ? `\${API}/api/fuel?vehicle_id=0` : `\${API}/api/fuel?vehicle_id=\${vId}`;
             const res = await fetch(url);
             const data = await res.json();
             const tbody = document.getElementById('fuelTableBody');
             tbody.innerHTML = '';
             
             data.forEach(r => {
-                const vehicleLabel = vehicleCache[r.vehicle_id] || 'ID: ' + r.vehicle_id;
-                tbody.innerHTML += '<tr>' +
-                    '<td><div style="font-weight:600; color:#374151;">' + vehicleLabel + '</div></td>' +
-                    '<td><input class="inline-edit" value="' + r.date + '" onkeydown="handleEdit(event, 'fuel', 'date', ' + r.id + ')"></td>' +
-                    '<td><input class="inline-edit" type="number" step="any" value="' + r.odometer + '" onkeydown="handleEdit(event, 'fuel', 'odometer', ' + r.id + ')"></td>' +
-                    '<td><input class="inline-edit" type="number" step="any" value="' + r.fuel_amount + '" onkeydown="handleEdit(event, 'fuel', 'fuel_amount', ' + r.id + ')"></td>' +
-                    '<td><input class="inline-edit" type="number" step="any" value="' + r.total_cost + '" onkeydown="handleEdit(event, 'fuel', 'total_cost', ' + r.id + ')"></td>' +
-                    '<td><input class="inline-edit" value="' + (r.fuel_station || '') + '" onkeydown="handleEdit(event, 'fuel', 'fuel_station', ' + r.id + ')"></td>' +
-                    '<td><input class="inline-edit" type="number" value="' + r.is_full + '" onkeydown="handleEdit(event, 'fuel', 'is_full', ' + r.id + ')"></td>' +
-                    '<td><button class="delete" style="padding:4px 8px; font-size:12px;" onclick="deleteRow('fuel', ' + r.id + ')">Delete</button></td>' +
-                '</tr>';
+                const vehicleLabel = vehicleCache[r.vehicle_id] || `ID: \${r.vehicle_id}`;
+                tbody.innerHTML += `<tr>
+                    <td><div style="font-weight:600; color:#374151;">\${vehicleLabel}</div></td>
+                    <td><input class="inline-edit" value="\${r.date}" onkeydown="handleEdit(event, 'fuel', 'date', \${r.id})"></td>
+                    <td><input class="inline-edit" type="number" step="any" value="\${r.odometer}" onkeydown="handleEdit(event, 'fuel', 'odometer', \${r.id})"></td>
+                    <td><input class="inline-edit" type="number" step="any" value="\${r.fuel_amount}" onkeydown="handleEdit(event, 'fuel', 'fuel_amount', \${r.id})"></td>
+                    <td><input class="inline-edit" type="number" step="any" value="\${r.total_cost}" onkeydown="handleEdit(event, 'fuel', 'total_cost', \${r.id})"></td>
+                    <td><input class="inline-edit" value="\${r.fuel_station || ''}" onkeydown="handleEdit(event, 'fuel', 'fuel_station', \${r.id})"></td>
+                    <td><input class="inline-edit" type="number" value="\${r.is_full}" onkeydown="handleEdit(event, 'fuel', 'is_full', \${r.id})"></td>
+                    <td><button class="delete" style="padding:4px 8px; font-size:12px;" onclick="deleteRow('fuel', \${r.id})">Delete</button></td>
+                </tr>`;
             });
         }
 
         async function fetchServiceLogs(vId) {
-            const url = vId === "ALL" ? API + '/api/service?vehicle_id=ALL' : API + '/api/service?vehicle_id=' + vId;
+            const url = vId === "ALL" ? `\${API}/api/service?vehicle_id=0` : `\${API}/api/service?vehicle_id=\${vId}`;
             const res = await fetch(url);
             const data = await res.json();
             const tbody = document.getElementById('serviceTableBody');
             tbody.innerHTML = '';
             
             data.forEach(r => {
-                const vehicleLabel = vehicleCache[r.vehicle_id] || 'ID: ' + r.vehicle_id;
-                tbody.innerHTML += '<tr>' +
-                    '<td><div style="font-weight:600; color:#374151;">' + vehicleLabel + '</div></td>' +
-                    '<td><input class="inline-edit" value="' + r.date + '" onkeydown="handleEdit(event, 'service', 'date', ' + r.id + ')"></td>' +
-                    '<td><input class="inline-edit" value="' + r.service_type + '" onkeydown="handleEdit(event, 'service', 'service_type', ' + r.id + ')"></td>' +
-                    '<td><input class="inline-edit" type="number" step="any" value="' + r.odometer + '" onkeydown="handleEdit(event, 'service', 'odometer', ' + r.id + ')"></td>' +
-                    '<td><input class="inline-edit" type="number" step="any" value="' + r.cost + '" onkeydown="handleEdit(event, 'service', 'cost', ' + r.id + ')"></td>' +
-                    '<td><input class="inline-edit" value="' + (r.service_station || '') + '" onkeydown="handleEdit(event, 'service', 'service_station', ' + r.id + ')"></td>' +
-                    '<td><input class="inline-edit" value="' + (r.next_service_date || '') + '" onkeydown="handleEdit(event, 'service', 'next_service_date', ' + r.id + ')"></td>' +
-                    '<td><textarea class="notes-textarea" onblur="handleTextareaBlur(this, ' + r.id + ')" onkeydown="handleTextareaKey(event, this, ' + r.id + ')">' + (r.notes || '') + '</textarea></td>' +
-                    '<td><button class="delete" style="padding:4px 8px; font-size:12px;" onclick="deleteRow('service', ' + r.id + ')">Delete</button></td>' +
-                '</tr>';
+                const vehicleLabel = vehicleCache[r.vehicle_id] || `ID: \${r.vehicle_id}`;
+                const badgeHtml = calculateDueBadge(r.next_service_date);
+                tbody.innerHTML += `<tr>
+                    <td><div style="font-weight:600; color:#374151;">	ext{\${vehicleLabel}}</div></td>
+                    <td><input class="inline-edit" value="\${r.date}" onkeydown="handleEdit(event, 'service', 'date', \${r.id})"></td>
+                    <td><input class="inline-edit" value="\${r.service_type}" onkeydown="handleEdit(event, 'service', 'service_type', \${r.id})"></td>
+                    <td><input class="inline-edit" type="number" step="any" value="\${r.odometer}" onkeydown="handleEdit(event, 'service', 'odometer', \${r.id})"></td>
+                    <td><input class="inline-edit" type="number" step="any" value="\${r.cost}" onkeydown="handleEdit(event, 'service', 'cost', \${r.id})"></td>
+                    <td><input class="inline-edit" value="\${r.service_station || ''}" onkeydown="handleEdit(event, 'service', 'service_station', \${r.id})"></td>
+                    <td><input class="inline-edit" value="\${r.next_service_date || ''}" onkeydown="handleEdit(event, 'service', 'next_service_date', \${r.id})">\${badgeHtml}</td>
+                    <td><textarea class="notes-textarea" onblur="handleTextareaBlur(this, \${r.id})" onkeydown="handleTextareaKey(event, this, \${r.id})">\${r.notes || ''}</textarea></td>
+                    <td><button class="delete" style="padding:4px 8px; font-size:12px;" onclick="deleteRow('service', \${r.id})">Delete</button></td>
+                </tr>`;
             });
         }
 
@@ -410,7 +441,7 @@ INDEX_HTML = """<!DOCTYPE html>
                 fuel_station: document.getElementById('fStation').value,
                 is_full: document.getElementById('fFull').checked ? 1 : 0
             };
-            await fetch(API + '/api/fuel', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
+            await fetch(\`\${API}/api/fuel\`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
             document.getElementById('fuelForm').reset();
             loadVehicleData();
         }
@@ -430,7 +461,7 @@ INDEX_HTML = """<!DOCTYPE html>
                 notes: document.getElementById('sNotes').value,
                 next_service_date: document.getElementById('sNextDate').value
             };
-            await fetch(API + '/api/service', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
+            await fetch(\`\${API}/api/service\`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
             document.getElementById('serviceForm').reset();
             loadVehicleData();
         }
@@ -462,23 +493,23 @@ INDEX_HTML = """<!DOCTYPE html>
 
         async function submitUpdate(table, field, id, value) {
             const body = { table, field, id, value };
-            await fetch(API + '/api/update', { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
+            await fetch(\`\${API}/api/update\`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
         }
 
         async function deleteRow(table, id) {
             if(!confirm("Erase this configuration row metric record permanently?")) return;
-            await fetch(API + '/api/delete?table=' + table + '&id=' + id, { method: 'DELETE' });
+            await fetch(\`\${API}/api/delete?table=\${table}&id=\${id}\`, { method: 'DELETE' });
             loadVehicleData();
         }
 
         async function exportData() {
-            const res = await fetch(API + '/api/export');
+            const res = await fetch(\`\${API}/api/export\`);
             const data = await res.json();
             const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'fuel_tracker_backup_' + new Date().toISOString().split('T')[0] + '.json';
+            a.download = \`fuel_tracker_backup_\${new Date().toISOString().split('T')[0]}.json\`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -491,13 +522,13 @@ INDEX_HTML = """<!DOCTYPE html>
             reader.onload = async function(evt) {
                 try {
                     const parsed = JSON.parse(evt.target.result);
-                    const res = await fetch(API + '/api/import', {
+                    const res = await fetch(\`\${API}/api/import\`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(parsed)
                     });
                     const resData = await res.json();
-                    alert('Import finished! Process Log State: ' + resData.status);
+                    alert(\`Import finished! Process Log State: \${resData.status}\`);
                     loadVehicles();
                 } catch(err) {
                     alert("Parsing file format error! Validate target backup setup.");
@@ -516,7 +547,7 @@ INDEX_HTML = """<!DOCTYPE html>
 class BackendAPIHandler(http.server.BaseHTTPRequestHandler):
     
     def log_message(self, format, *args):
-        print(f"[{self.date_time_string()}] " + (format % args))
+        return  # Keep terminal logs clean
 
     def _set_headers(self, status=200, content_type="application/json"):
         self.send_response(status)
@@ -548,70 +579,42 @@ class BackendAPIHandler(http.server.BaseHTTPRequestHandler):
         cursor = conn.cursor()
 
         if path == "/api/vehicles":
+            # Safely extract values and handle empty/null fuel capacities natively
+            fuel_cap = data.get('fuel_capacity')
+            if fuel_cap is None:
+            fuel_cap = 0.0
             cursor.execute("SELECT id, nickname, name, type, make_model, fuel_capacity FROM vehicles ORDER BY id ASC")
             rows = cursor.fetchall()
-            data = []
-            for v_id, v_nick, v_name, v_type, v_model, v_cap in rows:
-                data.append({
-                    "id": v_id,
-                    "nickname": v_nick,
-                    "name": v_name,
-                    "type": v_type,
-                    "make_model": v_model,
-                    "fuel_capacity": v_cap
-                })
+            data = [{"id": r[0], "nickname": r[1], "name": r[2], "type": r[3], "make_model": r[4], "fuel_capacity": r[5]} for r in rows]
             self._set_headers(200)
             self.wfile.write(json.dumps(data).encode('utf-8'))
 
         elif path == "/api/fuel":
-            v_id_str = query.get('vehicle_id', ["ALL"])[0]
-            if v_id_str == "ALL":
+            v_id_str = query.get('vehicle_id', ["0"])[0]
+            if v_id_str == "0" or v_id_str == "ALL":
                 cursor.execute("SELECT id, vehicle_id, date, odometer, fuel_amount, total_cost, fuel_station, is_full FROM fuel_logs ORDER BY date DESC, odometer DESC")
             else:
                 cursor.execute("SELECT id, vehicle_id, date, odometer, fuel_amount, total_cost, fuel_station, is_full FROM fuel_logs WHERE vehicle_id = %s ORDER BY date DESC, odometer DESC", (int(v_id_str),))
             rows = cursor.fetchall()
-            data = []
-            for f_id, f_v_id, f_date, f_odo, f_amt, f_cost, f_station, f_full in rows:
-                data.append({
-                    "id": f_id,
-                    "vehicle_id": f_v_id,
-                    "date": f_date,
-                    "odometer": f_odo,
-                    "fuel_amount": f_amt,
-                    "total_cost": f_cost,
-                    "fuel_station": f_station,
-                    "is_full": f_full
-                })
+            data = [{"id": r[0], "vehicle_id": r[1], "date": r[2], "odometer": r[3], "fuel_amount": r[4], "total_cost": r[5], "fuel_station": r[6], "is_full": r[7]} for r in rows]
             self._set_headers(200)
             self.wfile.write(json.dumps(data).encode('utf-8'))
 
         elif path == "/api/service":
-            v_id_str = query.get('vehicle_id', ["ALL"])[0]
-            if v_id_str == "ALL":
+            v_id_str = query.get('vehicle_id', ["0"])[0]
+            if v_id_str == "0" or v_id_str == "ALL":
                 cursor.execute("SELECT id, vehicle_id, date, next_service_date, service_type, odometer, cost, service_station, notes FROM service_logs ORDER BY date DESC, odometer DESC")
             else:
                 cursor.execute("SELECT id, vehicle_id, date, next_service_date, service_type, odometer, cost, service_station, notes FROM service_logs WHERE vehicle_id = %s ORDER BY date DESC, odometer DESC", (int(v_id_str),))
             rows = cursor.fetchall()
-            data = []
-            for s_id, s_v_id, s_date, s_next, s_type, s_odo, s_cost, s_station, s_notes in rows:
-                data.append({
-                    "id": s_id,
-                    "vehicle_id": s_v_id,
-                    "date": s_date,
-                    "next_service_date": s_next,
-                    "service_type": s_type,
-                    "odometer": s_odo,
-                    "cost": s_cost,
-                    "service_station": s_station,
-                    "notes": s_notes
-                })
+            data = [{"id": r[0], "vehicle_id": r[1], "date": r[2], "next_service_date": r[3], "service_type": r[4], "odometer": r[5], "cost": r[6], "service_station": r[7], "notes": r[8]} for r in rows]
             self._set_headers(200)
             self.wfile.write(json.dumps(data).encode('utf-8'))
 
         elif path == "/api/analytics":
-            v_id_str = query.get('vehicle_id', ["ALL"])[0]
+            v_id_str = query.get('vehicle_id', ["0"])[0]
             
-            if v_id_str == "ALL":
+            if v_id_str == "0" or v_id_str == "ALL":
                 cursor.execute("SELECT COALESCE(SUM(total_cost), 0) FROM fuel_logs")
                 total_fuel_cost = float(cursor.fetchone()[0])
                 cursor.execute("SELECT COALESCE(SUM(cost), 0) FROM service_logs")
@@ -623,7 +626,7 @@ class BackendAPIHandler(http.server.BaseHTTPRequestHandler):
                 total_fuel_cost = float(cursor.fetchone()[0])
                 cursor.execute("SELECT COALESCE(SUM(cost), 0) FROM service_logs WHERE vehicle_id = %s", (v_id,))
                 total_service_cost = float(cursor.fetchone()[0])
-                
+
                 cursor.execute("SELECT odometer, fuel_amount, is_full FROM fuel_logs WHERE vehicle_id = %s ORDER BY odometer ASC", (v_id,))
                 logs = cursor.fetchall()
                 avg_mileage = "N/A"
@@ -632,8 +635,9 @@ class BackendAPIHandler(http.server.BaseHTTPRequestHandler):
                     total_consumed_fuel = 0.0
                     last_full_odo = None
                     pending_fuel = 0.0
-                    
-                    for odo, fuel, is_full in logs:
+
+                    for log in logs:
+                        odo, fuel, is_full = log[0], log[1], log[2]
                         if is_full == 1:
                             if last_full_odo is not None:
                                 total_distance += (odo - last_full_odo)
@@ -643,10 +647,10 @@ class BackendAPIHandler(http.server.BaseHTTPRequestHandler):
                         else:
                             if last_full_odo is not None:
                                 pending_fuel += fuel
-                                
+
                     if total_consumed_fuel > 0:
                         avg_mileage = round(total_distance / total_consumed_fuel, 2)
-                        
+
             analytics = {
                 "total_fuel_cost": total_fuel_cost,
                 "total_service_cost": total_service_cost,
@@ -659,22 +663,16 @@ class BackendAPIHandler(http.server.BaseHTTPRequestHandler):
         elif path == "/api/export":
             cursor.execute("SELECT id, nickname, name, type, make_model, fuel_capacity FROM vehicles")
             v_rows = cursor.fetchall()
-            vehicles = []
-            for v_id, v_nick, v_name, v_type, v_model, v_cap in v_rows:
-                vehicles.append({"id": v_id, "nickname": v_nick, "name": v_name, "type": v_type, "make_model": v_model, "fuel_capacity": v_cap})
-            
+            vehicles = [{"id": r[0], "nickname": r[1], "name": r[2], "type": r[3], "make_model": r[4], "fuel_capacity": r[5]} for r in v_rows]
+
             cursor.execute("SELECT id, vehicle_id, date, odometer, fuel_amount, total_cost, fuel_station, is_full FROM fuel_logs")
             f_rows = cursor.fetchall()
-            fuel = []
-            for f_id, f_v_id, f_date, f_odo, f_amt, f_cost, f_station, f_full in f_rows:
-                fuel.append({"id": f_id, "vehicle_id": f_v_id, "date": f_date, "odometer": f_odo, "fuel_amount": f_amt, "total_cost": f_cost, "fuel_station": f_station, "is_full": f_full})
-            
+            fuel = [{"id": r[0], "vehicle_id": r[1], "date": r[2], "odometer": r[3], "fuel_amount": r[4], "total_cost": r[5], "fuel_station": r[6], "is_full": r[7]} for r in f_rows]
+
             cursor.execute("SELECT id, vehicle_id, date, next_service_date, service_type, odometer, cost, service_station, notes FROM service_logs")
             s_rows = cursor.fetchall()
-            service = []
-            for s_id, s_v_id, s_date, s_next, s_type, s_odo, s_cost, s_station, s_notes in s_rows:
-                service.append({"id": s_id, "vehicle_id": s_v_id, "date": s_date, "next_service_date": s_next, "service_type": s_type, "odometer": s_odo, "cost": s_cost, "service_station": s_station, "notes": s_notes})
-            
+            service = [{"id": r[0], "vehicle_id": r[1], "date": r[2], "next_service_date": r[3], "service_type": r[4], "odometer": r[5], "cost": r[6], "service_station": r[7], "notes": r[8]} for r in s_rows]
+
             backup = {"vehicles": vehicles, "fuel_logs": fuel, "service_logs": service}
             self._set_headers(200)
             self.wfile.write(json.dumps(backup).encode('utf-8'))
@@ -694,7 +692,7 @@ class BackendAPIHandler(http.server.BaseHTTPRequestHandler):
             cursor.execute("""
                 INSERT INTO vehicles (nickname, name, type, make_model, fuel_capacity) VALUES (%s, %s, %s, %s, %s) RETURNING id
             """, (data.get('nickname'), data['name'], data['type'], data['make_model'], data['fuel_capacity']))
-            new_id = int(cursor.fetchone()[0])
+            new_id = cursor.fetchone()[0]
             conn.commit()
             self._set_headers(201)
             self.wfile.write(json.dumps({"status": "created", "vehicle_id": new_id}).encode('utf-8'))
@@ -718,25 +716,26 @@ class BackendAPIHandler(http.server.BaseHTTPRequestHandler):
         elif path == "/api/import":
             try:
                 cursor.execute("TRUNCATE TABLE vehicles, fuel_logs, service_logs RESTART IDENTITY CASCADE;")
+                
                 v_map = {}
                 for v in data.get('vehicles', []):
                     cursor.execute("""
                         INSERT INTO vehicles (nickname, name, type, make_model, fuel_capacity) VALUES (%s, %s, %s, %s, %s) RETURNING id
                     """, (v.get('nickname'), v['name'], v['type'], v.get('make_model'), v.get('fuel_capacity')))
-                    v_map[v['id']] = int(cursor.fetchone()[0])
-                    
+                    v_map[v['id']] = cursor.fetchone()[0]
+
                 for f in data.get('fuel_logs', []):
                     if f['vehicle_id'] in v_map:
                         cursor.execute("""
                             INSERT INTO fuel_logs (vehicle_id, date, odometer, fuel_amount, total_cost, fuel_station, is_full) VALUES (%s, %s, %s, %s, %s, %s, %s)
                         """, (v_map[f['vehicle_id']], f['date'], f['odometer'], f['fuel_amount'], f['total_cost'], f.get('fuel_station'), f['is_full']))
-                        
+
                 for s in data.get('service_logs', []):
                     if s['vehicle_id'] in v_map:
                         cursor.execute("""
                             INSERT INTO service_logs (vehicle_id, service_type, date, odometer, cost, service_station, notes, next_service_date) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                         """, (v_map[s['vehicle_id']], s['service_type'], s['date'], s['odometer'], s['cost'], s.get('service_station'), s.get('notes'), s.get('next_service_date')))
-                        
+
                 conn.commit()
                 self._set_headers(200)
                 self.wfile.write(json.dumps({"status": "Success"}).encode('utf-8'))
