@@ -299,6 +299,14 @@ INDEX_HTML = r"""<!DOCTYPE html>
             return { cls: cls, label: label };
         }
 
+        // True if service record a is more recent than record b
+        function isNewerService(a, b) {
+            const da = String(a.date || ''), db = String(b.date || '');
+            if (da !== db) return da > db;                       // YYYY-MM-DD compares correctly as text
+            if (a.odometer !== b.odometer) return a.odometer > b.odometer;
+            return a.id > b.id;
+        }
+
         // Fetch wrapper: throws a readable error when the server returns a failure
         async function api(url, options) {
             const res = await fetch(url, options);
@@ -496,9 +504,18 @@ INDEX_HTML = r"""<!DOCTYPE html>
                 const tbody = document.getElementById('serviceTableBody');
                 let html = '';
 
+                // Find the most recent service entry for each vehicle (by date, then odometer, then id).
+                // Only that entry gets the due-date colour/badge; older entries are already superseded.
+                const latestByVehicle = {};
+                data.forEach(r => {
+                    const cur = latestByVehicle[r.vehicle_id];
+                    if (!cur || isNewerService(r, cur)) latestByVehicle[r.vehicle_id] = r;
+                });
+
                 data.forEach(r => {
                     const vehicleLabel = vehicleCache[r.vehicle_id] || 'ID: ' + r.vehicle_id;
-                    const due = dueStatus(r.next_service_date);
+                    const isLatest = latestByVehicle[r.vehicle_id] === r;
+                    const due = isLatest ? dueStatus(r.next_service_date) : { cls: '', label: '' };
                     const dueBadge = due.label ? '<span class="due-badge">' + esc(due.label) + '</span>' : '';
                     html += '<tr>' +
                         '<td><div style="font-weight:600; color:#374151;">' + esc(vehicleLabel) + '</div></td>' +
